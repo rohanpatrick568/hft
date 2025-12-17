@@ -1,0 +1,23 @@
+# Logs and Data
+*.log
+*.csv
+data/*.csv
+data/*.zip
+
+# IDE and Configuration
+.vscode/
+.github/
+
+# Build artifacts
+build/
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.tlog
+*.idb
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
