@@ -59,12 +59,12 @@ def create_sample(csv_path, sample_size):
 
 def main():
     parser = argparse.ArgumentParser(description="Download Binance Trade Data (Monthly or Daily)")
-    parser.add_argument("--mode", choices=["monthly", "daily"], default="monthly", help="Download mode")
+    parser.add_argument("--mode", choices=["monthly", "daily"], default="daily", help="Download mode")
     parser.add_argument("--symbol", type=str, default="BTCUSDT", help="Trading pair symbol")
-    parser.add_argument("--year", type=str, default="2024", help="Year (YYYY)")
-    parser.add_argument("--month", type=str, default="01", help="Month (MM)")
+    parser.add_argument("--year", type=str, default="2025", help="Year (YYYY)")
+    parser.add_argument("--month", type=str, default="11", help="Month (MM)")
     parser.add_argument("--day", type=str, default="01", help="Day (DD) - only for daily mode")
-    parser.add_argument("--sample", type=int, default=0, help="Create a sample CSV with N rows (0 to disable)")
+    parser.add_argument("--sample", type=int, default=100000, help="Create a sample CSV with N rows (0 to disable)")
     parser.add_argument("--output", type=str, default="../data", help="Output directory")
     
     args = parser.parse_args()

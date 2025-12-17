@@ -11,9 +11,10 @@ The system is designed to be **offline-first**, using free public trade data (Bi
     *   **Latency Modeling**: Simulates network and exchange processing delays (randomized 100µs - 500µs).
     *   **Fill Logic**: Orders are only filled if the market price crosses the limit price *after* the order arrives at the exchange.
     *   **PnL Tracking**: Real-time tracking of Inventory, Cash, Unrealized PnL, and Total Equity.
-*   **ML-Driven Strategy**:
-    *   **C++ Inference**: Runs a Logistic Regression model inside the hot path for buy/sell decisions.
-    *   **Python Training**: Uses `torch-directml` (AMD GPU support) to train models on simulation logs.
+*   **Market Making Strategy**:
+    *   **Avellaneda-Stoikov Model**: Implements the classic inventory-based market making strategy.
+    *   **Inventory Risk Management**: Adjusts quotes based on current inventory to target zero exposure.
+    *   **Volatility Estimation**: Calculates rolling variance of mid-prices to widen/tighten spreads dynamically.
 *   **Interpretability**:
     *   Dashboards to visualize PnL, Inventory, and Feature Contributions.
     *   Analysis of model calibration and regime-dependent behavior.
@@ -78,13 +79,11 @@ python python/dashboard.py data/simulation_log.csv
 ```
 
 ### 5. The Research Loop (How to Improve the Strategy)
-1.  **Analyze**: Open `python/interpretability.ipynb` to see *why* the model made certain decisions (Feature Attribution).
-2.  **Train**: Open `python/train_model.ipynb`.
-    *   It loads `simulation_log.csv`.
-    *   Trains a Logistic Regression model to predict the *next tick*.
-    *   Prints out new C++ weights (e.g., `double w_imbalance = 5.12;`).
-3.  **Deploy**: Copy the printed weights into `src/engine/DecisionEngine.cpp`.
-4.  **Rebuild & Test**: Recompile and run the simulation again to see if PnL improved.
+1.  **Analyze**: Open `python/dashboard.py` to see how your PnL evolves and where you take losses.
+2.  **Tune**: Adjust strategy parameters in `src/engine/DecisionEngine.h` or `src/main.cpp`:
+    *   `risk_aversion` ($\gamma$): Higher values make the agent dump inventory faster.
+    *   `window_size`: Controls how reactive the volatility estimate is.
+3.  **Rebuild & Test**: Recompile and run the simulation again to see if PnL improved.
 
 ## How It Works (Under the Hood)
 1.  **Replay**: The engine reads a trade from the CSV.
@@ -92,6 +91,6 @@ python python/dashboard.py data/simulation_log.csv
 3.  **Market Update**: It updates the Order Book with the new trade.
 4.  **Execution**: It checks if the new market price fills any of your resting orders.
 5.  **Decision**:
-    *   Extracts features (Imbalance, Spread).
-    *   Computes probability: $P(Up) = \sigma(w_1 \cdot Imbalance + w_2 \cdot Spread + b)$.
-    *   If $P > 0.6$, it sends a **Buy** order (with latency) to the queue.
+    *   Updates rolling price history to calculate volatility ($\sigma^2$).
+    *   Computes **Reservation Price** ($r$): $r = s - q \cdot \gamma \cdot \sigma^2$.
+    *   Places **Bid** and **Ask** orders around $r$ to capture the spread while managing inventory risk.

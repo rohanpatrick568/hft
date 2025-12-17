@@ -9,9 +9,9 @@ def parse_log(log_file):
         for line in f:
             if line.startswith("TICK,"):
                 parts = line.strip().split(',')
-                # TICK,timestamp,imbalance,spread,microprice,midprice,inventory,equity
+                # TICK,timestamp,imbalance,spread,microprice,midprice,inventory,equity,reservation_price,volatility
                 if len(parts) >= 8:
-                    data.append({
+                    record = {
                         'timestamp': int(parts[1]),
                         'imbalance': float(parts[2]),
                         'spread': float(parts[3]),
@@ -19,7 +19,11 @@ def parse_log(log_file):
                         'midprice': float(parts[5]),
                         'inventory': float(parts[6]),
                         'equity': float(parts[7])
-                    })
+                    }
+                    if len(parts) >= 10:
+                        record['reservation_price'] = float(parts[8])
+                        record['volatility'] = float(parts[9])
+                    data.append(record)
     return pd.DataFrame(data)
 
 def plot_dashboard(df):
