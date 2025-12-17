@@ -103,13 +103,13 @@ void OrderBook::printBook() const {
     std::cout << "Spread: " << getSpread() << std::endl;
     // Print top 5
     int count = 0;
-    for (auto const& [price, qty] : asks) {
-        std::cout << "ASK " << std::fixed << std::setprecision(2) << price << " : " << qty << std::endl;
+    for (auto const& entry : asks) {
+        std::cout << "ASK " << std::fixed << std::setprecision(2) << entry.first << " : " << entry.second << std::endl;
         if (++count >= 5) break;
     }
     count = 0;
-    for (auto const& [price, qty] : bids) {
-        std::cout << "BID " << std::fixed << std::setprecision(2) << price << " : " << qty << std::endl;
+    for (auto const& entry : bids) {
+        std::cout << "BID " << std::fixed << std::setprecision(2) << entry.first << " : " << entry.second << std::endl;
         if (++count >= 5) break;
     }
 }
