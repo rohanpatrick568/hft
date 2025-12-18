@@ -1,4 +1,7 @@
 #include "DecisionEngine.h"
+extern "C" {
+    #include "model_compiled.h" // Treelite compiled model
+}
 #include <iostream>
 #include <cmath>
 #include <numeric>
@@ -41,9 +44,22 @@ void DecisionEngine::on_event(const Features& features) {
     double q = simulator.getInventory();
     
     // 2. Calculate Reservation Price (r)
-    // r = s - q * gamma * sigma^2
+    // r = s - q * gamma * sigma^2 + alpha (ML Signal)
     double s = features.midprice;
-    double r = s - q * risk_aversion * sigma_sq;
+    
+    // ML Inference (Treelite)
+    // Features: Imbalance, Spread
+    union Entry data[2];
+    data[0].fvalue = (double)features.imbalance;
+    data[0].missing = -1;
+    data[1].fvalue = (double)features.spread;
+    data[1].missing = -1;
+    
+    // predict returns the raw score (or leaf value sum)
+    // For regression, this is the prediction.
+    double alpha_signal = predict(data, 0);
+    
+    double r = s - q * risk_aversion * sigma_sq + alpha_signal;
     
     // 3. Calculate Quotes
     // For this implementation, we place quotes at half spread around reservation price

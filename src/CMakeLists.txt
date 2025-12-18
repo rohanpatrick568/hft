@@ -16,6 +16,7 @@ set(SOURCES
     engine/DecisionEngine.cpp
     engine/ExecutionSimulator.cpp
     engine/LatencyQueueSimulator.cpp
+    engine/model_compiled.c
 )
 
 # Executable
