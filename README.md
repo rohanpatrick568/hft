@@ -1,42 +1,43 @@
 # HFT-Inspired Market Microstructure Trading System
 
 ## Overview
-This project is a high-frequency trading (HFT) research system designed to simulate realistic market microstructure behavior. It combines a high-performance **C++ Core** for simulation with a **Python/DirectML** stack for machine learning and analysis.
+This project is a high-frequency trading (HFT) research system designed to simulate realistic market microstructure behavior. It combines a high-performance **C++ Core** for simulation with a **Python/LightGBM** stack for machine learning.
 
 The system is designed to be **offline-first**, using free public trade data (Binance) to simulate a realistic trading environment including **network latency**, **queue position**, and **execution probability**.
 
 ## Key Features
 *   **Event-Driven Replay Engine**: Replays historical market data tick-by-tick with nanosecond precision.
+*   **Hybrid ML Inference**:
+    *   **Python Training**: Trains a LightGBM Gradient Boosting model on historical data.
+    *   **C++ Inference**: Compiles the model to optimized C code using **Treelite**, allowing for zero-overhead inference inside the hot path.
+*   **Market Making Strategy**:
+    *   **Avellaneda-Stoikov Model**: Implements the classic inventory-based market making strategy.
+    *   **ML Alpha Signal**: Uses the LightGBM model to predict short-term price movements and adjust the reservation price ($r$) accordingly.
+    *   **Inventory Risk Management**: Adjusts quotes based on current inventory to target zero exposure.
 *   **Realistic Execution Simulation**:
     *   **Latency Modeling**: Simulates network and exchange processing delays (randomized 100µs - 500µs).
     *   **Fill Logic**: Orders are only filled if the market price crosses the limit price *after* the order arrives at the exchange.
-    *   **PnL Tracking**: Real-time tracking of Inventory, Cash, Unrealized PnL, and Total Equity.
-*   **Market Making Strategy**:
-    *   **Avellaneda-Stoikov Model**: Implements the classic inventory-based market making strategy.
-    *   **Inventory Risk Management**: Adjusts quotes based on current inventory to target zero exposure.
-    *   **Volatility Estimation**: Calculates rolling variance of mid-prices to widen/tighten spreads dynamically.
-*   **Interpretability**:
-    *   Dashboards to visualize PnL, Inventory, and Feature Contributions.
-    *   Analysis of model calibration and regime-dependent behavior.
 
 ## Prerequisites
 - **OS:** Windows 10/11 (or Linux/macOS with CMake)
 - **C++ Compiler:** C++17 compatible (MSVC, GCC, Clang)
 - **Build System:** CMake 3.10+
 - **Python:** 3.8+
-- **Python Libraries:** `pandas`, `numpy`, `matplotlib`, `seaborn`, `plotly`, `torch`, `torch-directml`
+- **Python Libraries:** `pandas`, `numpy`, `lightgbm`, `treelite==3.9.0`, `treelite_runtime==3.9.0`, `matplotlib`, `plotly`
 
 ## Directory Structure
 ```
 ├── data/                   # Market data (CSV) and Simulation Logs
 ├── src/                    # C++ Core
 │   ├── engine/             # Replay, Decision, Execution, Latency logic
+│   │   └── model_compiled.c # Generated C code from Treelite
 │   ├── orderbook/          # Limit Order Book implementation
 │   └── main.cpp            # Entry point
 ├── python/                 # Analysis & ML
-│   ├── dashboard.py        # Quick PnL visualization
-│   ├── train_model.ipynb   # Train ML model & export weights
-│   └── interpretability.ipynb # Deep dive analysis
+│   ├── train_model.py      # Main training script (LightGBM -> C)
+│   ├── dashboard.py        # PnL visualization
+│   ├── interpretability.ipynb # Deep dive analysis
+│   └── legacy_train_logistic.ipynb # Old logistic regression notebook
 ├── scripts/                # Utilities
 │   └── download_data.py    # Data fetcher
 └── build/                  # Compiled binaries
@@ -51,8 +52,16 @@ Download a sample of public trade data (e.g., 50,000 trades from Jan 2024).
 python scripts/download_data.py --mode monthly --year 2024 --month 01 --sample 50000
 ```
 
-### 2. Build the Engine
-Compile the C++ simulation core.
+### 2. Train the Model
+Train the LightGBM model and compile it to C code. This generates `src/engine/model_compiled.c`.
+```bash
+# Make sure you have run a simulation at least once to generate logs, 
+# or use the dummy data generation in the script.
+python python/train_model.py
+```
+
+### 3. Build the Engine
+Compile the C++ simulation core (including the generated model).
 ```bash
 mkdir build
 cd build
@@ -60,8 +69,8 @@ cmake ..
 cmake --build . --config Release
 ```
 
-### 3. Run Simulation
-Run the engine on the sample data. The output is redirected to a CSV log file for analysis.
+### 4. Run Simulation
+Run the engine on the sample data. The output is redirected to a CSV log file.
 ```bash
 # Windows (PowerShell/CMD)
 .\src\Release\hft_engine.exe ..\data\BTCUSDT-trades-2024-01_sample.csv > ..\data\simulation_log.csv
@@ -69,28 +78,25 @@ Run the engine on the sample data. The output is redirected to a CSV log file fo
 # Linux/Mac
 ./hft_engine ../data/BTCUSDT-trades-2024-01_sample.csv > ../data/simulation_log.csv
 ```
-*Note: The simulation runs extremely fast because output is buffered to a file.*
 
-### 4. Analyze Performance
+### 5. Analyze Performance
 Visualize your strategy's PnL, Inventory, and Model Confidence.
 ```bash
 cd ..
 python python/dashboard.py data/simulation_log.csv
 ```
 
-### 5. The Research Loop (How to Improve the Strategy)
-1.  **Analyze**: Open `python/dashboard.py` to see how your PnL evolves and where you take losses.
-2.  **Tune**: Adjust strategy parameters in `src/engine/DecisionEngine.h` or `src/main.cpp`:
-    *   `risk_aversion` ($\gamma$): Higher values make the agent dump inventory faster.
-    *   `window_size`: Controls how reactive the volatility estimate is.
-3.  **Rebuild & Test**: Recompile and run the simulation again to see if PnL improved.
+## The Research Loop
+1.  **Simulate**: Run the C++ engine to generate `simulation_log.csv`.
+2.  **Train**: Run `python/train_model.py` to train a new model on the latest logs and regenerate `model_compiled.c`.
+3.  **Build**: Recompile the C++ engine to link the new model.
+4.  **Repeat**: Run the simulation again to test the new model's performance.
 
 ## How It Works (Under the Hood)
-1.  **Replay**: The engine reads a trade from the CSV.
-2.  **Latency**: It checks if any of your pending orders have "arrived" at the exchange (simulated delay).
-3.  **Market Update**: It updates the Order Book with the new trade.
-4.  **Execution**: It checks if the new market price fills any of your resting orders.
-5.  **Decision**:
-    *   Updates rolling price history to calculate volatility ($\sigma^2$).
-    *   Computes **Reservation Price** ($r$): $r = s - q \cdot \gamma \cdot \sigma^2$.
-    *   Places **Bid** and **Ask** orders around $r$ to capture the spread while managing inventory risk.
+1.  **Decision Engine**:
+    *   Calculates **Rolling Volatility** ($\sigma^2$).
+    *   Calculates **Inventory Risk** ($q \cdot \gamma \cdot \sigma^2$).
+    *   **Inference**: Calls the compiled LightGBM model to get an **Alpha Signal** ($\alpha$).
+    *   Computes **Reservation Price** ($r$): 
+        $$ r = s - q \gamma \sigma^2 + \alpha $$
+    *   Places **Bid** and **Ask** orders around $r$ to capture the spread.
