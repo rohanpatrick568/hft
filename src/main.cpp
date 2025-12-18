@@ -9,23 +9,43 @@
 int main(int argc, char* argv[]) {
     std::cout << "HFT Engine Starting..." << std::endl;
 
+    bool use_ml = true;
+    std::string dataFile = "";
+    std::string snapshotFile = "";
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--no-ml") {
+            use_ml = false;
+        } else if (arg == "--snapshots" && i + 1 < argc) {
+            snapshotFile = argv[++i];
+        } else {
+            dataFile = arg;
+        }
+    }
+
     OrderBook book;
     FeatureExtractor featureExtractor;
     ExecutionSimulator executionSimulator;
     LatencyQueueSimulator latencySimulator;
-    DecisionEngine decisionEngine(executionSimulator, latencySimulator);
+    // Pass use_ml to DecisionEngine
+    DecisionEngine decisionEngine(executionSimulator, latencySimulator, 0.1, 100, use_ml);
     
     ReplayEngine engine(book, featureExtractor, decisionEngine, executionSimulator, latencySimulator);
 
-    if (argc > 1) {
-        std::string arg1 = argv[1];
-        if (arg1 == "--snapshots" && argc > 2) {
-            engine.loadSnapshots(argv[2]);
-        } else {
-            engine.loadData(arg1);
-        }
+    if (!snapshotFile.empty()) {
+        engine.loadSnapshots(snapshotFile);
+    } else if (!dataFile.empty()) {
+        engine.loadData(dataFile);
     } else {
-        std::cout << "No data file provided. Usage: hft_engine <csv_file> OR hft_engine --snapshots <snapshot_file>" << std::endl;
+        std::cout << "No data file provided. Usage: hft_engine <csv_file> [--no-ml] OR hft_engine --snapshots <snapshot_file>" << std::endl;
+        return 1;
+    }
+
+    if (use_ml) {
+        std::cout << "Mode: ML Enabled (Hybrid Inference)" << std::endl;
+    } else {
+        std::cout << "Mode: Baseline (No ML)" << std::endl;
     }
 
     engine.run();

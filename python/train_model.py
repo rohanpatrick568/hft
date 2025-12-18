@@ -15,7 +15,7 @@ def train_and_compile():
     print("Loading data...")
     try:
         # Load data
-        columns = ['type', 'timestamp', 'imbalance', 'spread', 'microprice', 'midprice', 'inventory', 'equity', 'reservation_price', 'volatility']
+        columns = ['type', 'timestamp', 'imbalance', 'spread', 'microprice', 'midprice', 'inventory', 'equity', 'reservation_price', 'volatility', 'alpha']
         df = pd.read_csv(LOG_FILE, names=columns, on_bad_lines='skip')
         df = df[df['type'] == 'TICK'].copy()
         
@@ -38,10 +38,12 @@ def train_and_compile():
             'metric': 'rmse',
             'boosting_type': 'gbdt',
             'num_leaves': 31,
-            'learning_rate': 0.05,
-            'feature_fraction': 0.9
+            'learning_rate': 0.01,
+            'feature_fraction': 0.9,
+            'bagging_fraction': 0.9,
+            'verbose': 1
         }
-        bst = lgb.train(params, train_data, num_boost_round=100)
+        bst = lgb.train(params, train_data, num_boost_round=1000)
         
         print("Compiling model with Treelite...")
         model = treelite.Model.from_lightgbm(bst)

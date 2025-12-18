@@ -71,6 +71,8 @@ cmake --build . --config Release
 
 ### 4. Run Simulation
 Run the engine on the sample data. The output is redirected to a CSV log file.
+
+**Standard Run (ML Enabled):**
 ```bash
 # Windows (PowerShell/CMD)
 .\src\Release\hft_engine.exe ..\data\BTCUSDT-trades-2024-01_sample.csv > ..\data\simulation_log.csv
@@ -79,11 +81,26 @@ Run the engine on the sample data. The output is redirected to a CSV log file.
 ./hft_engine ../data/BTCUSDT-trades-2024-01_sample.csv > ../data/simulation_log.csv
 ```
 
+**Baseline Run (No ML):**
+Use the `--no-ml` flag to run the strategy without the machine learning signal (pure Avellaneda-Stoikov).
+```bash
+.\src\Release\hft_engine.exe ..\data\BTCUSDT-trades-2024-01_sample.csv --no-ml > ..\data\simulation_log_baseline.csv
+```
+
 ### 5. Analyze Performance
 Visualize your strategy's PnL, Inventory, and Model Confidence.
 ```bash
 cd ..
 python python/dashboard.py data/simulation_log.csv
+```
+
+### 6. A/B Testing
+Compare the performance of the ML strategy vs. the baseline.
+1. Run the simulation with ML enabled (step 4).
+2. Run the simulation with `--no-ml` (step 4).
+3. Use the comparison script:
+```bash
+python python/compare_pnl.py
 ```
 
 ## The Research Loop

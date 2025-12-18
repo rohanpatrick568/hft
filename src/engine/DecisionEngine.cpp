@@ -7,8 +7,8 @@ extern "C" {
 #include <numeric>
 #include <algorithm>
 
-DecisionEngine::DecisionEngine(ExecutionSimulator& simulator, LatencyQueueSimulator& latencySimulator, double risk_aversion, int window_size) 
-    : simulator(simulator), latencySimulator(latencySimulator), risk_aversion(risk_aversion), window_size(window_size) {}
+DecisionEngine::DecisionEngine(ExecutionSimulator& simulator, LatencyQueueSimulator& latencySimulator, double risk_aversion, int window_size, bool use_ml) 
+    : simulator(simulator), latencySimulator(latencySimulator), risk_aversion(risk_aversion), window_size(window_size), use_ml(use_ml) {}
 
 double DecisionEngine::calculate_volatility() {
     if (price_history.size() < 2) return 0.0;
@@ -47,17 +47,20 @@ void DecisionEngine::on_event(const Features& features) {
     // r = s - q * gamma * sigma^2 + alpha (ML Signal)
     double s = features.midprice;
     
-    // ML Inference (Treelite)
-    // Features: Imbalance, Spread
-    union Entry data[2];
-    data[0].fvalue = (double)features.imbalance;
-    data[0].missing = -1;
-    data[1].fvalue = (double)features.spread;
-    data[1].missing = -1;
-    
-    // predict returns the raw score (or leaf value sum)
-    // For regression, this is the prediction.
-    double alpha_signal = predict(data, 0);
+    double alpha_signal = 0.0;
+    if (use_ml) {
+        // ML Inference (Treelite)
+        // Features: Imbalance, Spread
+        union Entry data[2];
+        data[0].fvalue = (double)features.imbalance;
+        data[0].missing = -1;
+        data[1].fvalue = (double)features.spread;
+        data[1].missing = -1;
+        
+        // predict returns the raw score (or leaf value sum)
+        // For regression, this is the prediction.
+        alpha_signal = predict(data, 0);
+    }
     
     double r = s - q * risk_aversion * sigma_sq + alpha_signal;
     
@@ -80,7 +83,8 @@ void DecisionEngine::on_event(const Features& features) {
               << q << ","
               << equity << ","
               << r << "," // Log Reservation Price
-              << sigma_sq << std::endl; // Log Volatility
+              << sigma_sq << "," // Log Volatility
+              << alpha_signal << std::endl; // Log Alpha Signal
 
     // 4. Place Orders (Market Making)
     // We place BOTH a Bid and an Ask to capture the spread

@@ -91,7 +91,23 @@ void ReplayEngine::run() {
             // Here we simulate execution.
             double currentMid = featureExtractor.getFeatures().midprice;
             if (currentMid > 0) { // Ensure we have a valid price
-                executionSimulator.executeOrder(order.is_buy, order.price, order.quantity, currentMid);
+                // FIX: Only execute if the market price crossed our limit price
+                bool executable = false;
+                if (order.is_buy) {
+                    // Buy order executes if market price drops to or below limit price
+                    if (currentMid <= order.price) {
+                        executable = true;
+                    }
+                } else {
+                    // Sell order executes if market price rises to or above limit price
+                    if (currentMid >= order.price) {
+                        executable = true;
+                    }
+                }
+
+                if (executable) {
+                    executionSimulator.executeOrder(order.is_buy, order.price, order.quantity, currentMid);
+                }
             }
         }
 

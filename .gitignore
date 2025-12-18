@@ -1,4 +1,6 @@
 # Logs and Data
+*.png
+*.jpg
 *.log
 *.csv
 data/*.csv
