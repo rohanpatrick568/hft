@@ -91,17 +91,25 @@ Use the `--no-ml` flag to run the strategy without the machine learning signal (
 Visualize your strategy's PnL, Inventory, and Model Confidence.
 ```bash
 cd ..
-python python/dashboard.py data/simulation_log.csv
+# Open the notebook in VS Code or Jupyter Lab
+python/performance_analysis.ipynb
 ```
 
 ### 6. A/B Testing
 Compare the performance of the ML strategy vs. the baseline.
 1. Run the simulation with ML enabled (step 4).
 2. Run the simulation with `--no-ml` (step 4).
-3. Use the comparison script:
-```bash
-python python/compare_pnl.py
-```
+3. Use the analysis notebook `python/performance_analysis.ipynb` to compare results.
+
+## Performance (Latest Run)
+*   **ML Strategy**:
+    *   **PnL**: +2,527.88 USDT
+    *   **Trades**: 12,202
+    *   **Final Inventory**: 0.28 BTC
+*   **Baseline Strategy**:
+    *   **PnL**: +1.41 USDT
+    *   **Trades**: 253
+    *   **Final Inventory**: 0.00 BTC
 
 ## The Research Loop
 1.  **Simulate**: Run the C++ engine to generate `simulation_log.csv`.

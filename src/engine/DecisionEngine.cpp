@@ -50,12 +50,13 @@ void DecisionEngine::on_event(const Features& features) {
     double alpha_signal = 0.0;
     if (use_ml) {
         // ML Inference (Treelite)
-        // Features: Imbalance, Spread
-        union Entry data[2];
+        // Features: Imbalance, Spread, Arrival Rate, VPIN, Effective Spread
+        union Entry data[5];
         data[0].fvalue = (double)features.imbalance;
-        data[0].missing = -1;
         data[1].fvalue = (double)features.spread;
-        data[1].missing = -1;
+        data[2].fvalue = (double)features.arrival_rate;
+        data[3].fvalue = (double)features.vpin;
+        data[4].fvalue = (double)features.effective_spread;
         
         // predict returns the raw score (or leaf value sum)
         // For regression, this is the prediction.
@@ -98,10 +99,15 @@ void DecisionEngine::on_event(const Features& features) {
     // For this simulation step, we just send new quotes.
     
     double quantity = 0.01; // Fixed size
+    const double MAX_INVENTORY = 5.0; // Max inventory limit (BTC)
+
+    // Place Bid (only if inventory < MAX_INVENTORY)
+    if (q < MAX_INVENTORY) {
+        latencySimulator.addOrder(true, bid_price, quantity, features.timestamp);
+    }
     
-    // Place Bid
-    latencySimulator.addOrder(true, bid_price, quantity, features.timestamp);
-    
-    // Place Ask
-    latencySimulator.addOrder(false, ask_price, quantity, features.timestamp);
+    // Place Ask (only if inventory > -MAX_INVENTORY)
+    if (q > -MAX_INVENTORY) {
+        latencySimulator.addOrder(false, ask_price, quantity, features.timestamp);
+    }
 }

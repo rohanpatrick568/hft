@@ -6,7 +6,7 @@ import os
 import shutil
 
 # Configuration
-LOG_FILE = "data/simulation_log.csv"
+LOG_FILE = "data/simulation_log_ml.csv"
 OUTPUT_DIR = "src/engine"
 MODEL_FILE = "model_compiled.c"
 HEADER_FILE = "model_compiled.h"
@@ -15,11 +15,13 @@ def train_and_compile():
     print("Loading data...")
     try:
         # Load data
-        columns = ['type', 'timestamp', 'imbalance', 'spread', 'microprice', 'midprice', 'inventory', 'equity', 'reservation_price', 'volatility', 'alpha']
+        columns = ['type', 'timestamp', 'imbalance', 'spread', 'microprice', 'midprice', 
+                   'inventory', 'equity', 'reservation_price', 'volatility', 'alpha',
+                   'arrival_rate', 'vpin', 'effective_spread']
         df = pd.read_csv(LOG_FILE, names=columns, on_bad_lines='skip')
         df = df[df['type'] == 'TICK'].copy()
         
-        numeric_cols = ['imbalance', 'spread', 'microprice', 'midprice']
+        numeric_cols = ['imbalance', 'spread', 'microprice', 'midprice', 'arrival_rate', 'vpin', 'effective_spread']
         for col in numeric_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce')
         df.dropna(inplace=True)
@@ -28,7 +30,14 @@ def train_and_compile():
         df['future_return'] = df['midprice'].shift(-1) - df['midprice']
         df.dropna(inplace=True)
         
-        X = df[['imbalance', 'spread']].values
+        print("Target Stats:")
+        print(df['future_return'].describe())
+
+        # Clip target to avoid outliers
+        df['future_return'] = df['future_return'].clip(-50, 50)
+
+        # Features: Imbalance, Spread, Arrival Rate, VPIN, Effective Spread
+        X = df[['imbalance', 'spread', 'arrival_rate', 'vpin', 'effective_spread']].values
         y = df['future_return'].values
         
         print(f"Training LightGBM on {len(df)} samples...")
