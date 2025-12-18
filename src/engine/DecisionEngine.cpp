@@ -84,7 +84,11 @@ void DecisionEngine::on_event(const Features& features) {
               << equity << ","
               << r << "," // Log Reservation Price
               << sigma_sq << "," // Log Volatility
-              << alpha_signal << std::endl; // Log Alpha Signal
+              << alpha_signal << "," // Log Alpha Signal
+              << features.arrival_rate << "," // Log Arrival Rate
+              << features.vpin << "," // Log VPIN
+              << features.effective_spread // Log Effective Spread
+              << std::endl; 
 
     // 4. Place Orders (Market Making)
     // We place BOTH a Bid and an Ask to capture the spread

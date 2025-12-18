@@ -8,13 +8,34 @@ struct Features {
     double microprice;
     double spread;
     double midprice;
+    // New Features
+    double arrival_rate;      // Trades per second
+    double vpin;              // Volume-Synchronized Probability of Informed Trading
+    double effective_spread;  // Rolling average effective spread
 };
 
 class FeatureExtractor {
 public:
+    FeatureExtractor(); // Constructor for pre-allocation
     void update(const OrderBook& book, const MarketEvent& event);
     Features getFeatures() const;
 
 private:
     Features currentFeatures;
+
+    // Trade Arrival Rate
+    static const int MAX_TRADES_BUFFER = 10000; // Pre-allocate for high throughput
+    uint64_t trade_timestamps[MAX_TRADES_BUFFER];
+    int trade_idx = 0;
+    int trade_count = 0;
+
+    // VPIN
+    double volume_bucket_size = 10.0; // 10 BTC
+    double current_bucket_buy_vol = 0.0;
+    double current_bucket_sell_vol = 0.0;
+    double last_vpin = 0.0;
+
+    // Effective Spread
+    double rolling_eff_spread = 0.0;
+    double eff_spread_alpha = 0.05; // Decay factor for EMA
 };
