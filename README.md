@@ -7,13 +7,17 @@ The system is designed to be **offline-first**, using free public trade data (Bi
 
 ## Key Features
 *   **Event-Driven Replay Engine**: Replays historical market data tick-by-tick with nanosecond precision.
+*   **Volume Clock**: Triggers decision events based on traded volume (e.g., every 1.0 BTC) rather than wall-clock time, adapting to market activity.
 *   **Hybrid ML Inference**:
-    *   **Python Training**: Trains a LightGBM Gradient Boosting model on historical data.
+    *   **Python Training**: Trains a LightGBM Gradient Boosting model on historical data using **Spread-Adjusted Returns**.
     *   **C++ Inference**: Compiles the model to optimized C code using **Treelite**, allowing for zero-overhead inference inside the hot path.
 *   **Market Making Strategy**:
     *   **Avellaneda-Stoikov Model**: Implements the classic inventory-based market making strategy.
-    *   **ML Alpha Signal**: Uses the LightGBM model to predict short-term price movements and adjust the reservation price ($r$) accordingly.
+    *   **ML Alpha Signal**: Uses the LightGBM model (Features: OFI, Spread, Microprice, Volatility, Inventory) to predict short-term price movements.
+    *   **Signal Gating**: Implements a "Dead-Zone" where quotes are only placed if the model confidence exceeds a threshold (`|alpha| > 0.5`).
     *   **Inventory Risk Management**: Adjusts quotes based on current inventory to target zero exposure.
+*   **Order Flow Imbalance (OFI)**: Tracks the net flow of limit orders to quantify buying/selling pressure.
+*   **Adverse Selection Analysis**: Tools to measure post-fill price drift and validate signal quality.
 *   **Random Baseline Mode**:
     *   Includes a baseline mode (`--no-ml`) that trades randomly (20% probability per tick) to provide a benchmark for evaluating the ML strategy's performance.
 *   **Realistic Execution Simulation**:
@@ -25,7 +29,7 @@ The system is designed to be **offline-first**, using free public trade data (Bi
 - **C++ Compiler:** C++17 compatible (MSVC, GCC, Clang)
 - **Build System:** CMake 3.10+
 - **Python:** 3.8+
-- **Python Libraries:** `pandas`, `numpy`, `lightgbm`, `treelite==3.9.0`, `treelite_runtime==3.9.0`, `matplotlib`, `plotly`
+- **Python Libraries:** `pandas`, `numpy`, `lightgbm`, `treelite==3.9.0`, `treelite_runtime==3.9.0`, `matplotlib`, `plotly`, `seaborn`
 
 ## Directory Structure
 ```
@@ -38,6 +42,8 @@ The system is designed to be **offline-first**, using free public trade data (Bi
 ├── python/                 # Analysis & ML
 │   ├── train_model.py      # Main training script (LightGBM -> C)
 │   ├── tune_model.py       # Hyperparameter tuning script
+│   ├── run_sweep.py        # Volume clock sensitivity sweep
+│   ├── adverse_selection_analysis.py # Post-trade analysis
 │   ├── compare_results.py  # Benchmarking script (ML vs Baseline)
 │   ├── dashboard.py        # PnL visualization
 │   ├── interpretability.ipynb # Deep dive analysis
@@ -85,10 +91,22 @@ Run the engine on the sample data. The output is redirected to a CSV log file.
 **Standard Run (ML Enabled):**
 ```bash
 # Windows (PowerShell/CMD)
-.\src\Release\hft_engine.exe ..\data\BTCUSDT-trades-2024-01_sample.csv > ..\data\simulation_log_test_optimized.csv
+.\src\Release\hft_engine.exe ..\data\BTCUSDT-trades-2024-01_sample.csv --volume-bucket 1.0 --trade-logs ..\data\trade_logs.csv > ..\data\simulation_log.csv
 
 # Linux/Mac
-./hft_engine ../data/BTCUSDT-trades-2024-01_sample.csv > ../data/simulation_log_test_optimized.csv
+./hft_engine ../data/BTCUSDT-trades-2024-01_sample.csv --volume-bucket 1.0 --trade-logs ../data/trade_logs.csv > ../data/simulation_log.csv
+```
+
+**Parameter Sweep:**
+Run a sensitivity analysis on volume bucket sizes.
+```bash
+python python/run_sweep.py data/BTCUSDT-trades-2024-01_sample.csv
+```
+
+**Adverse Selection Analysis:**
+Analyze the quality of executed trades.
+```bash
+python python/adverse_selection_analysis.py data/trade_logs.csv
 ```
 
 **Baseline Run (No ML):**

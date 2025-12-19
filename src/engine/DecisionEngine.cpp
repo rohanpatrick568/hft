@@ -6,6 +6,7 @@ extern "C" {
 #include <cmath>
 #include <numeric>
 #include <algorithm>
+#include <string>
 
 DecisionEngine::DecisionEngine(ExecutionSimulator& simulator, LatencyQueueSimulator& latencySimulator, double risk_aversion, int window_size, bool use_ml) 
     : simulator(simulator), latencySimulator(latencySimulator), risk_aversion(risk_aversion), window_size(window_size), use_ml(use_ml) {}
@@ -111,9 +112,16 @@ void DecisionEngine::on_event(const Features& features) {
     // Phase 6.1: Decision Dead-Zone & Signal Gating
     // Reduce noise trading by requiring sufficient model confidence before placing quotes.
     
+    // Phase 7.4: Strategy Kill-Switch
+    // Disable trading in High Volatility regimes where alpha is unstable.
+    if (features.regime.find("HIGH_VOL") != std::string::npos) {
+        // std::cout << "Kill-Switch Active: " << features.regime << std::endl;
+        return;
+    }
+
     constexpr double ALPHA_THRESHOLD = 0.5;
-    double quantity = 0.01; // Fixed size
-    const double MAX_INVENTORY = 5.0; // Max inventory limit (BTC)
+    double quantity = order_size; // Use configured size
+    double MAX_INVENTORY = 100.0 * order_size; // Scale inventory limit with order size
 
     // Only trade if the signal is strong enough
     if (std::abs(alpha_signal) > ALPHA_THRESHOLD) {

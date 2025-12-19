@@ -12,8 +12,10 @@ The `src/engine/` directory contains the business logic and simulation component
     1.  Parse CSV line.
     2.  Update `LatencyQueueSimulator` (check for order fills).
     3.  Update `OrderBook` with new market data.
-    4.  Update `FeatureExtractor`.
-    5.  Call `DecisionEngine::on_event` to generate new quotes.
+    4.  **Volume Clock**: Aggregates volume (default 1.0 BTC) to trigger decision points.
+    5.  Update `FeatureExtractor`.
+    6.  Call `DecisionEngine::on_event` to generate new quotes.
+    7.  **Logging**: Records detailed trade logs (fill price, alpha, OFI) for adverse selection analysis.
 
 ### 2. Decision Engine (`DecisionEngine.cpp/h`)
 *   **Role**: The "Brain" of the trading bot.
@@ -21,6 +23,7 @@ The `src/engine/` directory contains the business logic and simulation component
 *   **Logic**:
     *   Calculates **Reservation Price** ($r$) based on mid-price, inventory risk, and an alpha signal.
     *   **ML Mode**: Uses the compiled LightGBM model (`model_compiled.c`) to predict price movement ($\alpha$).
+    *   **Signal Gating**: Ignores weak signals where $|\alpha| \le 0.5$ (Dead-Zone).
     *   **Baseline Mode**: Uses a random number generator to perturb the reservation price (20% probability) for benchmarking.
     *   Places Bid and Ask orders around $r$.
 

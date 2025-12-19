@@ -27,12 +27,14 @@ cmake --build . --config Release
 The compiled executable (`hft_engine`) takes the following arguments:
 
 ```bash
-./hft_engine <data_file_path> [--no-ml] [--snapshots <snapshot_file>]
+./hft_engine <data_file_path> [--no-ml] [--snapshots <snapshot_file>] [--volume-bucket <btc>] [--trade-logs <log_file>]
 ```
 
 *   `<data_file_path>`: Path to the CSV file containing trade data (e.g., `data/test_data.csv`).
 *   `--no-ml`: (Optional) Disables the ML model and runs the strategy in "Random Baseline" mode.
 *   `--snapshots`: (Optional) Path to a snapshot file (not fully implemented in current version).
+*   `--volume-bucket`: (Optional) Sets the volume clock threshold in BTC (default: 1.0).
+*   `--trade-logs`: (Optional) Path to save detailed trade execution logs (CSV).
 
 ## Key Components
 

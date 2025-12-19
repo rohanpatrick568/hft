@@ -12,6 +12,7 @@ data/*.zip
 
 # Build artifacts
 build/
+*.o
 *.exe
 *.obj
 *.pdb

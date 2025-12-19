@@ -13,6 +13,7 @@ struct Features {
     double vpin;              // Volume-Synchronized Probability of Informed Trading
     double effective_spread;  // Rolling average effective spread
     double ofi;               // Order Flow Imbalance
+    std::string regime;       // Market Regime (e.g., "HIGH_VOL_LOW_LIQ")
 };
 
 class FeatureExtractor {

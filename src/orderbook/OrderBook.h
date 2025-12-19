@@ -13,6 +13,7 @@ public:
     double getSpread() const;
     double getBidVolume(int level) const;
     double getAskVolume(int level) const;
+    double getVolumeAt(double price) const; // Phase 7.2
     
     void printBook() const;
 

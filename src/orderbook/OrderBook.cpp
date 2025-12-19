@@ -98,6 +98,12 @@ double OrderBook::getAskVolume(int level) const {
     return it->second;
 }
 
+double OrderBook::getVolumeAt(double price) const {
+    if (bids.count(price)) return bids.at(price);
+    if (asks.count(price)) return asks.at(price);
+    return 0.0;
+}
+
 void OrderBook::printBook() const {
     std::cout << "--- Order Book ---" << std::endl;
     std::cout << "Spread: " << getSpread() << std::endl;
