@@ -14,6 +14,8 @@ The system is designed to be **offline-first**, using free public trade data (Bi
     *   **Avellaneda-Stoikov Model**: Implements the classic inventory-based market making strategy.
     *   **ML Alpha Signal**: Uses the LightGBM model to predict short-term price movements and adjust the reservation price ($r$) accordingly.
     *   **Inventory Risk Management**: Adjusts quotes based on current inventory to target zero exposure.
+*   **Random Baseline Mode**:
+    *   Includes a baseline mode (`--no-ml`) that trades randomly (20% probability per tick) to provide a benchmark for evaluating the ML strategy's performance.
 *   **Realistic Execution Simulation**:
     *   **Latency Modeling**: Simulates network and exchange processing delays (randomized 100µs - 500µs).
     *   **Fill Logic**: Orders are only filled if the market price crosses the limit price *after* the order arrives at the exchange.
@@ -35,6 +37,8 @@ The system is designed to be **offline-first**, using free public trade data (Bi
 │   └── main.cpp            # Entry point
 ├── python/                 # Analysis & ML
 │   ├── train_model.py      # Main training script (LightGBM -> C)
+│   ├── tune_model.py       # Hyperparameter tuning script
+│   ├── compare_results.py  # Benchmarking script (ML vs Baseline)
 │   ├── dashboard.py        # PnL visualization
 │   ├── interpretability.ipynb # Deep dive analysis
 │   └── legacy_train_logistic.ipynb # Old logistic regression notebook
@@ -52,11 +56,17 @@ Download a sample of public trade data (e.g., 50,000 trades from Jan 2024).
 python scripts/download_data.py --mode monthly --year 2024 --month 01 --sample 50000
 ```
 
-### 2. Train the Model
-Train the LightGBM model and compile it to C code. This generates `src/engine/model_compiled.c`.
+### 2. Train & Tune the Model
+You can either train a default model or tune hyperparameters for better performance.
+
+**Option A: Tune Hyperparameters (Recommended)**
+This script runs a Grid Search, finds the best parameters, and compiles the model to C.
 ```bash
-# Make sure you have run a simulation at least once to generate logs, 
-# or use the dummy data generation in the script.
+python python/tune_model.py
+```
+
+**Option B: Train Default Model**
+```bash
 python python/train_model.py
 ```
 
@@ -75,45 +85,35 @@ Run the engine on the sample data. The output is redirected to a CSV log file.
 **Standard Run (ML Enabled):**
 ```bash
 # Windows (PowerShell/CMD)
-.\src\Release\hft_engine.exe ..\data\BTCUSDT-trades-2024-01_sample.csv > ..\data\simulation_log.csv
+.\src\Release\hft_engine.exe ..\data\BTCUSDT-trades-2024-01_sample.csv > ..\data\simulation_log_test_optimized.csv
 
 # Linux/Mac
-./hft_engine ../data/BTCUSDT-trades-2024-01_sample.csv > ../data/simulation_log.csv
+./hft_engine ../data/BTCUSDT-trades-2024-01_sample.csv > ../data/simulation_log_test_optimized.csv
 ```
 
 **Baseline Run (No ML):**
-Use the `--no-ml` flag to run the strategy without the machine learning signal (pure Avellaneda-Stoikov).
+Use the `--no-ml` flag to run the strategy without the machine learning signal (pure Avellaneda-Stoikov with random noise).
 ```bash
-.\src\Release\hft_engine.exe ..\data\BTCUSDT-trades-2024-01_sample.csv --no-ml > ..\data\simulation_log_baseline.csv
+.\src\Release\hft_engine.exe ..\data\BTCUSDT-trades-2024-01_sample.csv --no-ml > ..\data\simulation_log_test_random.csv
 ```
 
-### 5. Analyze Performance
-Visualize your strategy's PnL, Inventory, and Model Confidence.
+### 5. Compare Results
+Run the comparison script to see the performance difference (PnL, Sharpe Ratio, Drawdown).
 ```bash
 cd ..
+python python/compare_results.py
+```
+
+### 6. Analyze Performance
+Visualize your strategy's PnL, Inventory, and Model Confidence.
+```bash
 # Open the notebook in VS Code or Jupyter Lab
 python/performance_analysis.ipynb
 ```
 
-### 6. A/B Testing
-Compare the performance of the ML strategy vs. the baseline.
-1. Run the simulation with ML enabled (step 4).
-2. Run the simulation with `--no-ml` (step 4).
-3. Use the analysis notebook `python/performance_analysis.ipynb` to compare results.
-
-## Performance (Latest Run)
-*   **ML Strategy**:
-    *   **PnL**: +2,527.88 USDT
-    *   **Trades**: 12,202
-    *   **Final Inventory**: 0.28 BTC
-*   **Baseline Strategy**:
-    *   **PnL**: +1.41 USDT
-    *   **Trades**: 253
-    *   **Final Inventory**: 0.00 BTC
-
 ## The Research Loop
 1.  **Simulate**: Run the C++ engine to generate `simulation_log.csv`.
-2.  **Train**: Run `python/train_model.py` to train a new model on the latest logs and regenerate `model_compiled.c`.
+2.  **Tune**: Run `python/tune_model.py` to optimize the model on the latest logs and regenerate `model_compiled.c`.
 3.  **Build**: Recompile the C++ engine to link the new model.
 4.  **Repeat**: Run the simulation again to test the new model's performance.
 
