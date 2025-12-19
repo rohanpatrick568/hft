@@ -1,15 +1,15 @@
 #include "DecisionEngine.h"
-extern "C" {
+// extern "C" {
     #include "model_compiled.h" // Treelite compiled model
-}
+// }
 #include <iostream>
 #include <cmath>
 #include <numeric>
 #include <algorithm>
 #include <string>
 
-DecisionEngine::DecisionEngine(ExecutionSimulator& simulator, LatencyQueueSimulator& latencySimulator, double risk_aversion, int window_size, bool use_ml) 
-    : simulator(simulator), latencySimulator(latencySimulator), risk_aversion(risk_aversion), window_size(window_size), use_ml(use_ml) {}
+DecisionEngine::DecisionEngine(ExecutionInterface& execution, double risk_aversion, int window_size, bool use_ml) 
+    : execution(execution), risk_aversion(risk_aversion), window_size(window_size), use_ml(use_ml) {}
 
 double DecisionEngine::calculate_volatility() {
     if (price_history.size() < 2) return 0.0;
@@ -35,14 +35,14 @@ void DecisionEngine::on_event(const Features& features) {
     }
 
     // Log for ML: timestamp,imbalance,spread,microprice,midprice,inventory,pnl
-    double equity = simulator.getTotalEquity(features.midprice);
+    double equity = execution.getTotalPnL(features.midprice); // Using PnL as proxy for equity tracking in logs
     
     // Calculate Volatility (Variance)
     double sigma_sq = calculate_volatility();
     
     // Avellaneda-Stoikov Logic
     // 1. Get Inventory (q)
-    double q = simulator.getInventory();
+    double q = execution.getInventory();
     
     // 2. Calculate Reservation Price (r)
     // r = s - q * gamma * sigma^2 + alpha (ML Signal)
@@ -129,14 +129,14 @@ void DecisionEngine::on_event(const Features& features) {
         // We place a BID.
         if (alpha_signal > ALPHA_THRESHOLD) {
             if (q < MAX_INVENTORY) {
-                latencySimulator.addOrder(true, bid_price, quantity, features.timestamp);
+                execution.placeOrder(true, bid_price, quantity, features.timestamp);
             }
         }
         // If alpha is negative (price expected to fall), we want to sell.
         // We place an ASK.
         else if (alpha_signal < -ALPHA_THRESHOLD) {
             if (q > -MAX_INVENTORY) {
-                latencySimulator.addOrder(false, ask_price, quantity, features.timestamp);
+                execution.placeOrder(false, ask_price, quantity, features.timestamp);
             }
         }
     }

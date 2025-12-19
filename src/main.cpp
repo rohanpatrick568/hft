@@ -1,10 +1,12 @@
 #include <iostream>
 #include "orderbook/OrderBook.h"
-#include "engine/ReplayEngine.h"
+#include "engine/TradingEngine.h"
 #include "engine/FeatureExtractor.h"
 #include "engine/DecisionEngine.h"
-#include "engine/ExecutionSimulator.h"
-#include "engine/LatencyQueueSimulator.h"
+#include "engine/CSVFeed.h"
+#include "engine/SimulatedExchange.h"
+#include "engine/LiveFeedAdapter.h"
+#include "engine/PaperExchangeAdapter.h"
 
 int main(int argc, char* argv[]) {
     std::cerr << "HFT Engine Starting..." << std::endl;
@@ -18,6 +20,9 @@ int main(int argc, char* argv[]) {
     double queue_decay = 0.0;
     double order_size = 0.01;
     double impact_coeff = 0.0;
+    std::string mode = "backtest";
+    std::string apiKey = "";
+    std::string secretKey = "";
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -37,6 +42,12 @@ int main(int argc, char* argv[]) {
             order_size = std::stod(argv[++i]);
         } else if (arg == "--impact-coeff" && i + 1 < argc) {
             impact_coeff = std::stod(argv[++i]);
+        } else if (arg == "--mode" && i + 1 < argc) {
+            mode = argv[++i];
+        } else if (arg == "--api-key" && i + 1 < argc) {
+            apiKey = argv[++i];
+        } else if (arg == "--secret-key" && i + 1 < argc) {
+            secretKey = argv[++i];
         } else {
             dataFile = arg;
         }
@@ -44,26 +55,43 @@ int main(int argc, char* argv[]) {
 
     OrderBook book;
     FeatureExtractor featureExtractor;
-    ExecutionSimulator executionSimulator;
-    // Use fixed latency for deterministic sweep
-    LatencyQueueSimulator latencySimulator(latency_us * 1000, latency_us * 1000); 
+    
+    MarketDataFeed* feed = nullptr;
+    ExecutionInterface* execution = nullptr;
+    
+    if (mode == "backtest") {
+        feed = new CSVFeed();
+        auto* simExchange = new SimulatedExchange(book, latency_us * 1000);
+        simExchange->setQueueDecay(queue_decay);
+        simExchange->setImpactCoeff(impact_coeff);
+        execution = simExchange;
+    } else if (mode == "paper") {
+        feed = new LiveFeedAdapter("BTCUSDT", true);
+        execution = new PaperExchangeAdapter(apiKey, secretKey, true);
+    } else {
+        std::cerr << "Unknown mode: " << mode << std::endl;
+        return 1;
+    }
     
     // Pass use_ml to DecisionEngine
-    DecisionEngine decisionEngine(executionSimulator, latencySimulator, 0.1, 100, use_ml);
+    DecisionEngine decisionEngine(*execution, 0.1, 100, use_ml);
     decisionEngine.setOrderSize(order_size);
     
-    ReplayEngine engine(book, featureExtractor, decisionEngine, executionSimulator, latencySimulator);
+    TradingEngine engine(*feed, *execution, book, featureExtractor, decisionEngine);
     engine.setVolumeBucket(volume_bucket);
-    engine.setQueueDecay(queue_decay);
-    engine.setImpactCoeff(impact_coeff);
 
-    if (!snapshotFile.empty()) {
-        engine.loadSnapshots(snapshotFile);
-    } else if (!dataFile.empty()) {
-        engine.loadData(dataFile);
+    if (mode == "backtest") {
+        if (!snapshotFile.empty()) {
+            // engine.loadSnapshots(snapshotFile); // TODO: Add loadSnapshots to MarketDataFeed or handle in CSVFeed
+        } 
+        if (!dataFile.empty()) {
+            feed->loadData(dataFile);
+        } else {
+            std::cerr << "No data file provided for backtest." << std::endl;
+            return 1;
+        }
     } else {
-        std::cerr << "No data file provided. Usage: hft_engine <csv_file> [--no-ml] [--volume-bucket <btc>] [--trade-logs <file>]" << std::endl;
-        return 1;
+        feed->loadData("binance");
     }
 
     if (use_ml) {
@@ -77,6 +105,9 @@ int main(int argc, char* argv[]) {
     if (!tradeLogFile.empty()) {
         engine.saveTradeLogs(tradeLogFile);
     }
+    
+    delete feed;
+    delete execution;
 
     return 0;
 }

@@ -1,20 +1,18 @@
 #pragma once
 #include "FeatureExtractor.h"
-#include "ExecutionSimulator.h"
-#include "LatencyQueueSimulator.h"
+#include "ExecutionInterface.h"
 #include <vector>
 #include <deque>
 
 class DecisionEngine {
 public:
-    DecisionEngine(ExecutionSimulator& simulator, LatencyQueueSimulator& latencySimulator, double risk_aversion = 0.1, int window_size = 100, bool use_ml = true);
+    DecisionEngine(ExecutionInterface& execution, double risk_aversion = 0.1, int window_size = 100, bool use_ml = true);
     void on_event(const Features& features);
     double getLastAlpha() const { return last_alpha; }
     void setOrderSize(double size) { order_size = size; }
 
 private:
-    ExecutionSimulator& simulator;
-    LatencyQueueSimulator& latencySimulator;
+    ExecutionInterface& execution;
     double last_alpha = 0.0;
     double order_size = 0.01;
     
