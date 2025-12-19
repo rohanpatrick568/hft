@@ -79,6 +79,9 @@ void ReplayEngine::parseCSV(const std::string& filePath) {
 void ReplayEngine::run() {
     std::cout << "Starting replay..." << std::endl;
     
+    size_t decision_event_count = 0;
+    std::vector<size_t> active_log_indices;
+
     for (const auto& event : events) {
         // 1. Process Pending Orders that have "arrived" at the exchange
         // We check if any orders in the latency queue have an arrival time <= current event time.
@@ -107,6 +110,21 @@ void ReplayEngine::run() {
 
                 if (executable) {
                     executionSimulator.executeOrder(order.is_buy, order.price, order.quantity, currentMid);
+
+                    // Phase 6.2: Adverse Selection Logging
+                    TradeLog log;
+                    log.timestamp = event.timestamp_ns;
+                    log.is_buy = order.is_buy;
+                    log.fill_price = order.price;
+                    log.fill_midprice = currentMid;
+                    log.alpha_at_fill = decisionEngine.getLastAlpha();
+                    log.ofi_at_fill = featureExtractor.getFeatures().ofi;
+                    log.event_index = decision_event_count;
+                    log.midprice_after_5 = 0; 
+                    log.midprice_after_10 = 0;
+                    
+                    trade_logs.push_back(log);
+                    active_log_indices.push_back(trade_logs.size() - 1);
                 }
             }
         }
@@ -132,7 +150,37 @@ void ReplayEngine::run() {
         
         book.apply(event);
         featureExtractor.update(book, event);
-        decisionEngine.on_event(featureExtractor.getFeatures());
+
+        // Volume Clock Logic
+        if (event.type == EventType::TRADE) {
+            accumulated_volume += event.quantity;
+        }
+
+        if (accumulated_volume >= volume_bucket) {
+            decisionEngine.on_event(featureExtractor.getFeatures());
+            
+            // Update Future Prices for Logs
+            decision_event_count++;
+            double currentMid = featureExtractor.getFeatures().midprice;
+            
+            auto it = active_log_indices.begin();
+            while (it != active_log_indices.end()) {
+                TradeLog& log = trade_logs[*it];
+                if (decision_event_count == log.event_index + 5) {
+                    log.midprice_after_5 = currentMid;
+                }
+                if (decision_event_count == log.event_index + 10) {
+                    log.midprice_after_10 = currentMid;
+                    it = active_log_indices.erase(it); // Done tracking this log
+                } else {
+                    ++it;
+                }
+            }
+
+            accumulated_volume -= volume_bucket; 
+            // accumulated_volume = 0.0; // Reset for simplicity and to avoid burst of decisions
+            // Keeping the subtraction logic to be more accurate with volume buckets
+        }
         
         // Update PnL Tracking
         // For this MVP, we assume we are just tracking the market state.
@@ -203,4 +251,20 @@ void ReplayEngine::parseSnapshotCSV(const std::string& filePath) {
     });
     
     std::cout << "Loaded " << events.size() << " events (including snapshots)." << std::endl;
+}
+
+void ReplayEngine::saveTradeLogs(const std::string& filename) {
+    std::ofstream file(filename);
+    file << "timestamp,is_buy,fill_price,fill_midprice,alpha_at_fill,ofi_at_fill,midprice_after_5,midprice_after_10\n";
+    for (const auto& log : trade_logs) {
+        file << log.timestamp << ","
+             << log.is_buy << ","
+             << log.fill_price << ","
+             << log.fill_midprice << ","
+             << log.alpha_at_fill << ","
+             << log.ofi_at_fill << ","
+             << log.midprice_after_5 << ","
+             << log.midprice_after_10 << "\n";
+    }
+    std::cout << "Saved trade logs to " << filename << std::endl;
 }

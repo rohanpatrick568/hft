@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 def load_log(filepath):
     columns = ['type', 'timestamp', 'imbalance', 'spread', 'microprice', 'midprice', 
                'inventory', 'equity', 'reservation_price', 'volatility', 
-               'alpha', 'arrival_rate', 'vpin', 'effective_spread']
+               'alpha', 'arrival_rate', 'vpin', 'effective_spread', 'ofi']
     
     try:
         # Read all lines and filter for TICK
@@ -23,7 +23,7 @@ def load_log(filepath):
         # Convert numeric columns
         numeric_cols = ['imbalance', 'spread', 'microprice', 'midprice', 
                         'inventory', 'equity', 'reservation_price', 'volatility',
-                        'alpha', 'arrival_rate', 'vpin', 'effective_spread']
+                        'alpha', 'arrival_rate', 'vpin', 'effective_spread', 'ofi']
         
         for col in numeric_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce')

@@ -50,13 +50,13 @@ void DecisionEngine::on_event(const Features& features) {
     double alpha_signal = 0.0;
     if (use_ml) {
         // ML Inference (Treelite)
-        // Features: Imbalance, Spread, Arrival Rate, VPIN, Effective Spread
+        // Features: OFI, Spread, Microprice Deviation, Volatility, Inventory
         union Entry data[5];
-        data[0].fvalue = (double)features.imbalance;
+        data[0].fvalue = (double)features.ofi;
         data[1].fvalue = (double)features.spread;
-        data[2].fvalue = (double)features.arrival_rate;
-        data[3].fvalue = (double)features.vpin;
-        data[4].fvalue = (double)features.effective_spread;
+        data[2].fvalue = (double)(features.microprice - features.midprice);
+        data[3].fvalue = (double)sigma_sq;
+        data[4].fvalue = (double)q;
         
         // predict returns the raw score (or leaf value sum)
         // For regression, this is the prediction.
@@ -76,6 +76,8 @@ void DecisionEngine::on_event(const Features& features) {
         }
     }
     
+    last_alpha = alpha_signal;
+
     double r = s - q * risk_aversion * sigma_sq + alpha_signal;
     
     // 3. Calculate Quotes
@@ -101,26 +103,33 @@ void DecisionEngine::on_event(const Features& features) {
               << alpha_signal << "," // Log Alpha Signal
               << features.arrival_rate << "," // Log Arrival Rate
               << features.vpin << "," // Log VPIN
-              << features.effective_spread // Log Effective Spread
+              << features.effective_spread << "," // Log Effective Spread
+              << features.ofi // Log OFI
               << std::endl; 
 
     // 4. Place Orders (Market Making)
-    // We place BOTH a Bid and an Ask to capture the spread
-    // Note: In a real system, we would cancel previous orders first.
-    // Here, LatencyQueueSimulator handles "new" orders. 
-    // Ideally, we should have order management to update quotes.
-    // For this simulation step, we just send new quotes.
+    // Phase 6.1: Decision Dead-Zone & Signal Gating
+    // Reduce noise trading by requiring sufficient model confidence before placing quotes.
     
+    constexpr double ALPHA_THRESHOLD = 0.5;
     double quantity = 0.01; // Fixed size
     const double MAX_INVENTORY = 5.0; // Max inventory limit (BTC)
 
-    // Place Bid (only if inventory < MAX_INVENTORY)
-    if (q < MAX_INVENTORY) {
-        latencySimulator.addOrder(true, bid_price, quantity, features.timestamp);
-    }
-    
-    // Place Ask (only if inventory > -MAX_INVENTORY)
-    if (q > -MAX_INVENTORY) {
-        latencySimulator.addOrder(false, ask_price, quantity, features.timestamp);
+    // Only trade if the signal is strong enough
+    if (std::abs(alpha_signal) > ALPHA_THRESHOLD) {
+        // If alpha is positive (price expected to rise), we want to buy.
+        // We place a BID.
+        if (alpha_signal > ALPHA_THRESHOLD) {
+            if (q < MAX_INVENTORY) {
+                latencySimulator.addOrder(true, bid_price, quantity, features.timestamp);
+            }
+        }
+        // If alpha is negative (price expected to fall), we want to sell.
+        // We place an ASK.
+        else if (alpha_signal < -ALPHA_THRESHOLD) {
+            if (q > -MAX_INVENTORY) {
+                latencySimulator.addOrder(false, ask_price, quantity, features.timestamp);
+            }
+        }
     }
 }

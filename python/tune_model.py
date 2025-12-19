@@ -18,23 +18,33 @@ def load_data():
     try:
         columns = ['type', 'timestamp', 'imbalance', 'spread', 'microprice', 'midprice', 
                    'inventory', 'equity', 'reservation_price', 'volatility', 'alpha',
-                   'arrival_rate', 'vpin', 'effective_spread']
+                   'arrival_rate', 'vpin', 'effective_spread', 'ofi']
         df = pd.read_csv(LOG_FILE, names=columns, on_bad_lines='skip')
         df = df[df['type'] == 'TICK'].copy()
         
-        numeric_cols = ['imbalance', 'spread', 'microprice', 'midprice', 'arrival_rate', 'vpin', 'effective_spread']
+        numeric_cols = ['imbalance', 'spread', 'microprice', 'midprice', 'arrival_rate', 'vpin', 'effective_spread', 'ofi']
         for col in numeric_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce')
         df.dropna(inplace=True)
         
-        # Create Target: Future Return (Next Tick)
-        df['future_return'] = df['midprice'].shift(-1) - df['midprice']
+        # Create Target: Spread-Adjusted Future Return
+        # y = (mid_price[t + H] - mid_price[t]) / spread[t]
+        H = 10 # Horizon in volume buckets
+        
+        df['future_mid'] = df['midprice'].shift(-H)
+        df['future_return'] = (df['future_mid'] - df['midprice']) / df['spread']
+        
+        # Handle division by zero or NaN
+        df.replace([np.inf, -np.inf], np.nan, inplace=True)
         df.dropna(inplace=True)
         
-        # Clip target
-        df['future_return'] = df['future_return'].clip(-50, 50)
+        # Clip target (e.g., +/- 5 spreads)
+        df['future_return'] = df['future_return'].clip(-5, 5)
         
-        X = df[['imbalance', 'spread', 'arrival_rate', 'vpin', 'effective_spread']].values
+        # Feature Selection: [ofi, spread, microprice_deviation, volatility, inventory]
+        df['microprice_deviation'] = df['microprice'] - df['midprice']
+        
+        X = df[['ofi', 'spread', 'microprice_deviation', 'volatility', 'inventory']].values
         y = df['future_return'].values
         
         return X, y

@@ -9,10 +9,12 @@ class DecisionEngine {
 public:
     DecisionEngine(ExecutionSimulator& simulator, LatencyQueueSimulator& latencySimulator, double risk_aversion = 0.1, int window_size = 100, bool use_ml = true);
     void on_event(const Features& features);
+    double getLastAlpha() const { return last_alpha; }
 
 private:
     ExecutionSimulator& simulator;
     LatencyQueueSimulator& latencySimulator;
+    double last_alpha = 0.0;
     
     // Avellaneda-Stoikov Parameters
     double risk_aversion; // gamma

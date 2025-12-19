@@ -31,6 +31,54 @@ void FeatureExtractor::update(const OrderBook& book, const MarketEvent& event) {
         currentFeatures.spread = 0.0;
     }
 
+    // --- OFI Calculation ---
+    double bid_contrib = 0.0;
+    double ask_contrib = 0.0;
+
+    // Bid Side
+    if (best_bid > prev_best_bid_price) {
+        bid_contrib = bid_vol;
+    } else if (best_bid == prev_best_bid_price) {
+        bid_contrib = bid_vol - prev_best_bid_qty;
+    } else {
+        bid_contrib = -prev_best_bid_qty;
+    }
+
+    // Ask Side
+    if (best_ask < prev_best_ask_price) {
+        ask_contrib = ask_vol;
+    } else if (best_ask == prev_best_ask_price) {
+        ask_contrib = ask_vol - prev_best_ask_qty;
+    } else {
+        ask_contrib = -prev_best_ask_qty;
+    }
+
+    // Handle initial state (prev prices are 0)
+    if (prev_best_bid_price == 0) bid_contrib = 0;
+    if (prev_best_ask_price == 0) ask_contrib = 0;
+
+    double delta_ofi = bid_contrib - ask_contrib;
+
+    // Update Rolling OFI
+    if (ofi_count < OFI_WINDOW) {
+        ofi_buffer[ofi_idx] = delta_ofi;
+        ofi_rolling_sum += delta_ofi;
+        ofi_idx = (ofi_idx + 1) % OFI_WINDOW;
+        ofi_count++;
+    } else {
+        ofi_rolling_sum -= ofi_buffer[ofi_idx];
+        ofi_buffer[ofi_idx] = delta_ofi;
+        ofi_rolling_sum += delta_ofi;
+        ofi_idx = (ofi_idx + 1) % OFI_WINDOW;
+    }
+    currentFeatures.ofi = ofi_rolling_sum;
+
+    // Update Previous State
+    prev_best_bid_price = best_bid;
+    prev_best_bid_qty = bid_vol;
+    prev_best_ask_price = best_ask;
+    prev_best_ask_qty = ask_vol;
+
     // --- New Features Calculation (Only on Trades) ---
     // Assuming EventType::TRADE is implied if price/qty matches a trade, 
     // but MarketEvent struct usually has a type. 

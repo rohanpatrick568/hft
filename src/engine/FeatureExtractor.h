@@ -12,6 +12,7 @@ struct Features {
     double arrival_rate;      // Trades per second
     double vpin;              // Volume-Synchronized Probability of Informed Trading
     double effective_spread;  // Rolling average effective spread
+    double ofi;               // Order Flow Imbalance
 };
 
 class FeatureExtractor {
@@ -22,6 +23,18 @@ public:
 
 private:
     Features currentFeatures;
+
+    // OFI State
+    double prev_best_bid_price = 0.0;
+    double prev_best_bid_qty = 0.0;
+    double prev_best_ask_price = 0.0;
+    double prev_best_ask_qty = 0.0;
+    
+    static constexpr int OFI_WINDOW = 50;
+    double ofi_buffer[OFI_WINDOW] = {0};
+    int ofi_idx = 0;
+    int ofi_count = 0;
+    double ofi_rolling_sum = 0.0;
 
     // Trade Arrival Rate
     static const int MAX_TRADES_BUFFER = 10000; // Pre-allocate for high throughput

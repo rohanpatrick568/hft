@@ -12,6 +12,8 @@ int main(int argc, char* argv[]) {
     bool use_ml = true;
     std::string dataFile = "";
     std::string snapshotFile = "";
+    double volume_bucket = 1.0;
+    std::string tradeLogFile = "";
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -19,6 +21,10 @@ int main(int argc, char* argv[]) {
             use_ml = false;
         } else if (arg == "--snapshots" && i + 1 < argc) {
             snapshotFile = argv[++i];
+        } else if (arg == "--volume-bucket" && i + 1 < argc) {
+            volume_bucket = std::stod(argv[++i]);
+        } else if (arg == "--trade-logs" && i + 1 < argc) {
+            tradeLogFile = argv[++i];
         } else {
             dataFile = arg;
         }
@@ -32,13 +38,14 @@ int main(int argc, char* argv[]) {
     DecisionEngine decisionEngine(executionSimulator, latencySimulator, 0.1, 100, use_ml);
     
     ReplayEngine engine(book, featureExtractor, decisionEngine, executionSimulator, latencySimulator);
+    engine.setVolumeBucket(volume_bucket);
 
     if (!snapshotFile.empty()) {
         engine.loadSnapshots(snapshotFile);
     } else if (!dataFile.empty()) {
         engine.loadData(dataFile);
     } else {
-        std::cerr << "No data file provided. Usage: hft_engine <csv_file> [--no-ml] OR hft_engine --snapshots <snapshot_file>" << std::endl;
+        std::cerr << "No data file provided. Usage: hft_engine <csv_file> [--no-ml] [--volume-bucket <btc>] [--trade-logs <file>]" << std::endl;
         return 1;
     }
 
@@ -49,6 +56,10 @@ int main(int argc, char* argv[]) {
     }
 
     engine.run();
+    
+    if (!tradeLogFile.empty()) {
+        engine.saveTradeLogs(tradeLogFile);
+    }
 
     return 0;
 }
