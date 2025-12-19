@@ -12,7 +12,7 @@ void ReplayEngine::loadData(const std::string& filePath) {
 }
 
 void ReplayEngine::parseCSV(const std::string& filePath) {
-    std::cout << "Loading data from " << filePath << "..." << std::endl;
+    std::cerr << "Loading data from " << filePath << "..." << std::endl;
     std::ifstream file(filePath);
     std::string line;
     
@@ -144,7 +144,7 @@ void ReplayEngine::run() {
         // std::cout << "PnL: " << executionSimulator.getTotalPnL(featureExtractor.getFeatures().midprice) << std::endl;
     }
     
-    std::cout << "Replay finished." << std::endl;
+    std::cerr << "Replay finished." << std::endl;
 }
 
 void ReplayEngine::loadSnapshots(const std::string& filePath) {

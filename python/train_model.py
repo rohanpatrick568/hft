@@ -6,7 +6,7 @@ import os
 import shutil
 
 # Configuration
-LOG_FILE = "data/simulation_log_ml.csv"
+LOG_FILE = "data/simulation_log_train.csv"
 OUTPUT_DIR = "src/engine"
 MODEL_FILE = "model_compiled.c"
 HEADER_FILE = "model_compiled.h"
@@ -52,7 +52,7 @@ def train_and_compile():
             'bagging_fraction': 0.9,
             'verbose': 1
         }
-        bst = lgb.train(params, train_data, num_boost_round=1000)
+        bst = lgb.train(params, train_data, num_boost_round=2000)
         
         print("Compiling model with Treelite...")
         model = treelite.Model.from_lightgbm(bst)

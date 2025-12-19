@@ -61,6 +61,19 @@ void DecisionEngine::on_event(const Features& features) {
         // predict returns the raw score (or leaf value sum)
         // For regression, this is the prediction.
         alpha_signal = predict(data, 0);
+    } else {
+        // Baseline: Random Trading (20% chance to trade)
+        // We use a simple pseudo-random check
+        // rand() is not thread-safe or high-quality, but sufficient for baseline
+        // We want to randomly perturb the reservation price to induce trades
+        // or just randomly decide to place orders.
+        // Let's add random noise to alpha instead.
+        
+        // 20% chance to have a non-zero alpha (random direction)
+        if ((rand() % 100) < 20) {
+             // Random alpha between -10 and 10
+             alpha_signal = (double)((rand() % 2000) - 1000) / 100.0;
+        }
     }
     
     double r = s - q * risk_aversion * sigma_sq + alpha_signal;

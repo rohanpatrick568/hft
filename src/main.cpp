@@ -7,7 +7,7 @@
 #include "engine/LatencyQueueSimulator.h"
 
 int main(int argc, char* argv[]) {
-    std::cout << "HFT Engine Starting..." << std::endl;
+    std::cerr << "HFT Engine Starting..." << std::endl;
 
     bool use_ml = true;
     std::string dataFile = "";
@@ -38,14 +38,14 @@ int main(int argc, char* argv[]) {
     } else if (!dataFile.empty()) {
         engine.loadData(dataFile);
     } else {
-        std::cout << "No data file provided. Usage: hft_engine <csv_file> [--no-ml] OR hft_engine --snapshots <snapshot_file>" << std::endl;
+        std::cerr << "No data file provided. Usage: hft_engine <csv_file> [--no-ml] OR hft_engine --snapshots <snapshot_file>" << std::endl;
         return 1;
     }
 
     if (use_ml) {
-        std::cout << "Mode: ML Enabled (Hybrid Inference)" << std::endl;
+        std::cerr << "Mode: ML Enabled (Hybrid Inference)" << std::endl;
     } else {
-        std::cout << "Mode: Baseline (No ML)" << std::endl;
+        std::cerr << "Mode: Baseline (No ML)" << std::endl;
     }
 
     engine.run();
