@@ -9,24 +9,38 @@ import time
 ORDERS_FILE = "data/sim_orders.json"
 FILLS_FILE = "data/sim_fills.json"
 POSITION_FILE = "data/sim_position.json"
+HISTORY_FILE = "data/sim_fills_history.json"
 
 def load_json(filepath, default):
     if not os.path.exists(filepath): return default
-    try:
-        with open(filepath, 'r') as f:
-            return json.load(f)
-    except:
-        return default
+    for _ in range(10):
+        try:
+            with open(filepath, 'r') as f:
+                return json.load(f)
+        except (PermissionError, json.JSONDecodeError):
+            time.sleep(0.01)
+        except Exception:
+            return default
+    return default
 
 def save_json(filepath, data):
     temp = filepath + ".tmp"
-    with open(temp, 'w') as f:
-        json.dump(data, f)
-    os.replace(temp, filepath)
+    for _ in range(10):
+        try:
+            with open(temp, 'w') as f:
+                json.dump(data, f)
+            os.replace(temp, filepath)
+            return
+        except PermissionError:
+            time.sleep(0.01)
+        except Exception as e:
+            sys.stderr.write(f"[SimExec] Error saving {filepath}: {e}\n")
+            return
 
 def place_order(symbol, side, qty, price=None, type="market"):
     orders = load_json(ORDERS_FILE, {})
-    order_id = str(uuid.uuid4())
+    # Use numeric ID for C++ compatibility (stoull)
+    order_id = str(int(time.time() * 1000000) + len(orders))
     
     orders[order_id] = {
         "symbol": symbol,
@@ -57,18 +71,16 @@ def get_position(symbol):
 def get_fills(symbol):
     fills = load_json(FILLS_FILE, [])
     # Format: timestamp,orderId,price,quantity,is_buy,is_maker
-    # We need to clear reported fills so we don't report them twice?
-    # The C++ adapter polls. If we return all fills every time, C++ might duplicate.
-    # But C++ PaperExchangeAdapter doesn't seem to track "seen" fills, it just logs them.
-    # Wait, ExecutionSimulator in C++ handles this. PaperExchangeAdapter just returns what it gets.
-    # If we return the same fill twice, C++ might process it twice.
-    # Let's assume we should only return *new* fills.
-    # We can move reported fills to a "history" file or just clear the list.
     
     if fills:
         for f in fills:
             print(f"{f['timestamp']},{f['orderId']},{f['price']},{f['quantity']},{f['is_buy']},{f['is_maker']}")
         
+        # Append to history
+        history = load_json(HISTORY_FILE, [])
+        history.extend(fills)
+        save_json(HISTORY_FILE, history)
+
         # Clear fills after reporting
         save_json(FILLS_FILE, [])
 

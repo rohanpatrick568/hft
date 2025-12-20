@@ -3,6 +3,7 @@
 *.jpg
 *.log
 *.csv
+*.json
 data/*.csv
 data/*.zip
 
@@ -11,6 +12,7 @@ data/*.zip
 .github/
 
 # Build artifacts
+CMakeFiles/
 build/
 *.o
 *.exe

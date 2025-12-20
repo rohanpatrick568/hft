@@ -1,7 +1,7 @@
 #include "DecisionEngine.h"
-// extern "C" {
+extern "C" {
     #include "model_compiled.h" // Treelite compiled model
-// }
+}
 #include <iostream>
 #include <cmath>
 #include <numeric>
@@ -51,13 +51,15 @@ void DecisionEngine::on_event(const Features& features) {
     double alpha_signal = 0.0;
     if (use_ml) {
         // ML Inference (Treelite)
-        // Features: OFI, Spread, Microprice Deviation, Volatility, Inventory
-        union Entry data[5];
-        data[0].fvalue = (double)features.ofi;
+        // Features: Imbalance, Spread, Arrival Rate, VPIN, Effective Spread, OFI
+        // MUST MATCH python/train_model.py
+        union Entry data[6];
+        data[0].fvalue = (double)features.imbalance;
         data[1].fvalue = (double)features.spread;
-        data[2].fvalue = (double)(features.microprice - features.midprice);
-        data[3].fvalue = (double)sigma_sq;
-        data[4].fvalue = (double)q;
+        data[2].fvalue = (double)features.arrival_rate;
+        data[3].fvalue = (double)features.vpin;
+        data[4].fvalue = (double)features.effective_spread;
+        data[5].fvalue = (double)features.ofi;
         
         // predict returns the raw score (or leaf value sum)
         // For regression, this is the prediction.
@@ -79,17 +81,16 @@ void DecisionEngine::on_event(const Features& features) {
     
     last_alpha = alpha_signal;
 
-    double r = s - q * risk_aversion * sigma_sq + alpha_signal;
+    // Apply skew_factor to inventory term
+    double r = s - q * risk_aversion * skew_factor * sigma_sq + alpha_signal;
     
     // 3. Calculate Quotes
-    // For this implementation, we place quotes at half spread around reservation price
-    // Or we can use the model's optimal spread formula: delta = gamma * sigma^2 * T + (2/gamma) * ln(1 + gamma/k)
-    // Simplified: Use current market spread or a fixed minimum spread
-    double half_spread = features.spread / 2.0;
-    if (half_spread <= 0) half_spread = 0.5; // Fallback if spread is 0
+    // Use fixed half_spread if set, otherwise dynamic
+    double current_half_spread = (half_spread > 0) ? half_spread : (features.spread / 2.0);
+    if (current_half_spread <= 0) current_half_spread = 0.5; // Fallback
     
-    double bid_price = r - half_spread;
-    double ask_price = r + half_spread;
+    double bid_price = r - current_half_spread;
+    double ask_price = r + current_half_spread;
     
     // Log State
     std::cout << "TICK," << features.timestamp << "," 

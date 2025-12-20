@@ -18,6 +18,16 @@ public:
         std::ifstream file(filePath);
         std::string line;
         
+        // Skip header
+        if (std::getline(file, line)) {
+            // Check if it's actually a header
+            if (line.find("timestamp") == std::string::npos) {
+                // Not a header, reset
+                file.clear();
+                file.seekg(0);
+            }
+        }
+
         while (std::getline(file, line)) {
             std::stringstream ss(line);
             std::string segment;
@@ -27,17 +37,17 @@ public:
                 parts.push_back(segment);
             }
             
-            if (parts.size() < 6) continue;
+            // Expected format: timestamp,symbol,type,price,size,bid,ask
+            if (parts.size() < 7) continue;
             
             try {
                 MarketEvent event;
-                event.type = EventType::TRADE;
-                event.price = std::stod(parts[1]);
-                event.quantity = std::stod(parts[2]);
                 
-                std::string ts_str = parts[4];
+                // Timestamp (index 0)
+                std::string ts_str = parts[0];
                 uint64_t raw_ts = std::stoull(ts_str);
                 
+                // Normalize to nanoseconds
                 if (ts_str.length() <= 10) {
                     event.timestamp_ns = raw_ts * 1000000000ULL;
                 } else if (ts_str.length() <= 13) {
@@ -48,8 +58,23 @@ public:
                     event.timestamp_ns = raw_ts;
                 }
 
-                bool isBuyerMaker = (parts[5] == "True" || parts[5] == "true" || parts[5] == "1");
-                event.is_buy = !isBuyerMaker;
+                std::string typeStr = parts[2];
+                if (typeStr == "QUOTE") {
+                    event.type = EventType::QUOTE;
+                    event.bid_price = std::stod(parts[5]);
+                    event.ask_price = std::stod(parts[6]);
+                    // Assume size 100 for quotes as it's missing
+                    event.bid_size = 100; 
+                    event.ask_size = 100;
+                    event.quantity = 0;
+                } else if (typeStr == "TRADE") {
+                    event.type = EventType::TRADE;
+                    event.price = std::stod(parts[3]);
+                    event.quantity = std::stod(parts[4]);
+                    // is_buy will be determined after sorting
+                } else {
+                    continue; 
+                }
 
                 events.push_back(event);
             } catch (...) {
@@ -60,6 +85,26 @@ public:
         std::sort(events.begin(), events.end(), [](const MarketEvent& a, const MarketEvent& b) {
             return a.timestamp_ns < b.timestamp_ns;
         });
+
+        // Infer trade direction
+        double current_bid = 0.0;
+        double current_ask = 0.0;
+        
+        for (auto& event : events) {
+            if (event.type == EventType::QUOTE) {
+                if (event.bid_price > 0) current_bid = event.bid_price;
+                if (event.ask_price > 0) current_ask = event.ask_price;
+            } else if (event.type == EventType::TRADE) {
+                double mid = (current_bid + current_ask) / 2.0;
+                if (mid > 0) {
+                    if (event.price > mid) event.is_buy = true;
+                    else if (event.price < mid) event.is_buy = false;
+                    else event.is_buy = true; // Default to buy if equal
+                } else {
+                    event.is_buy = true; // Default
+                }
+            }
+        }
         
         std::cout << "Loaded " << events.size() << " events." << std::endl;
         current_index = 0;

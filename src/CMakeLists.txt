@@ -16,6 +16,10 @@ set(SOURCES
     engine/DecisionEngine.cpp
     engine/ExecutionSimulator.cpp
     engine/LatencyQueueSimulator.cpp
+    engine/TradingEngine.cpp
+    engine/SimulatedExchange.cpp
+    engine/LiveFeedAdapter.cpp
+    engine/PaperExchangeAdapter.cpp
     engine/model_compiled.c
 )
 

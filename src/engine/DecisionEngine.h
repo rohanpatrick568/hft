@@ -10,6 +10,8 @@ public:
     void on_event(const Features& features);
     double getLastAlpha() const { return last_alpha; }
     void setOrderSize(double size) { order_size = size; }
+    void setHalfSpread(double spread) { half_spread = spread; }
+    void setSkewFactor(double skew) { skew_factor = skew; }
 
 private:
     ExecutionInterface& execution;
@@ -21,6 +23,9 @@ private:
     int window_size;
     bool use_ml;
     
+    double half_spread = 0.0;
+    double skew_factor = 1.0;
+
     // Volatility Calculation
     std::deque<double> price_history;
     double calculate_volatility();

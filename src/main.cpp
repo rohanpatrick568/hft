@@ -20,6 +20,10 @@ int main(int argc, char* argv[]) {
     double queue_decay = 0.0;
     double order_size = 0.01;
     double impact_coeff = 0.0;
+    double risk_aversion = 0.1;
+    int window_size = 100;
+    double half_spread = 0.0;
+    double skew_factor = 1.0;
     std::string mode = "backtest";
     std::string apiKey = "";
     std::string secretKey = "";
@@ -43,6 +47,14 @@ int main(int argc, char* argv[]) {
             order_size = std::stod(argv[++i]);
         } else if (arg == "--impact-coeff" && i + 1 < argc) {
             impact_coeff = std::stod(argv[++i]);
+        } else if (arg == "--risk-aversion" && i + 1 < argc) {
+            risk_aversion = std::stod(argv[++i]);
+        } else if (arg == "--window-size" && i + 1 < argc) {
+            window_size = std::stoi(argv[++i]);
+        } else if (arg == "--half-spread" && i + 1 < argc) {
+            half_spread = std::stod(argv[++i]);
+        } else if (arg == "--skew-factor" && i + 1 < argc) {
+            skew_factor = std::stod(argv[++i]);
         } else if (arg == "--mode" && i + 1 < argc) {
             mode = argv[++i];
         } else if (arg == "--api-key" && i + 1 < argc) {
@@ -77,8 +89,10 @@ int main(int argc, char* argv[]) {
     }
     
     // Pass use_ml to DecisionEngine
-    DecisionEngine decisionEngine(*execution, 0.1, 100, use_ml);
+    DecisionEngine decisionEngine(*execution, risk_aversion, window_size, use_ml);
     decisionEngine.setOrderSize(order_size);
+    decisionEngine.setHalfSpread(half_spread);
+    decisionEngine.setSkewFactor(skew_factor);
     
     TradingEngine engine(*feed, *execution, book, featureExtractor, decisionEngine);
     engine.setVolumeBucket(volume_bucket);
@@ -105,8 +119,11 @@ int main(int argc, char* argv[]) {
 
     engine.run();
     
+    std::cerr << "Engine run finished. Saving logs to: " << tradeLogFile << std::endl;
     if (!tradeLogFile.empty()) {
         engine.saveTradeLogs(tradeLogFile);
+    } else {
+        std::cerr << "No trade log file specified." << std::endl;
     }
     
     delete feed;

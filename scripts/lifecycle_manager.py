@@ -15,11 +15,12 @@ import argparse
 CONFIG_PATH = "config/lifecycle.yaml"
 
 class LifecycleManager:
-    def __init__(self, config_path, mode="live"):
+    def __init__(self, config_path, mode="live", engine_args=None):
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f)
         
         self.mode = mode
+        self.engine_args = engine_args or []
         self.log_dir = self.config['system']['log_dir']
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
@@ -81,6 +82,10 @@ class LifecycleManager:
 
     def start_engine(self):
         cmd = self.config['processes']['engine']['command'] + self.config['processes']['engine']['args']
+        # Append extra args
+        if self.engine_args:
+            cmd.extend(self.engine_args)
+            
         # Pass API keys to engine
         cmd.extend(["--api-key", self.api_key, "--secret-key", self.secret_key])
         
@@ -122,6 +127,13 @@ class LifecycleManager:
             
             # Optional: Log sample ticks to debug
             # if "TRADE" in line: self.log("FEED", line.strip(), "DEBUG")
+        
+        # Close engine stdin to signal EOF when feed finishes
+        if self.engine_proc and self.engine_proc.poll() is None:
+            try:
+                self.engine_proc.stdin.close()
+            except Exception as e:
+                self.log("LIFECYCLE", f"Error closing engine stdin: {e}", "WARNING")
 
     def log_stream(self, stream, component):
         """Reads a stream and logs it to file."""
@@ -198,8 +210,20 @@ class LifecycleManager:
             
             # 1. Check Feed Health
             if self.feed_proc.poll() is not None:
-                self.log("LIFECYCLE", "Market feed died. Restarting...", "ERROR")
-                self.start_market_feed()
+                if self.mode == "research":
+                    self.log("LIFECYCLE", "Research feed finished. Waiting for engine...", "INFO")
+                    # Wait for engine to finish processing
+                    try:
+                        self.engine_proc.wait(timeout=60)
+                    except subprocess.TimeoutExpired:
+                        self.log("LIFECYCLE", "Engine timed out. Forcing shutdown.", "WARNING")
+                        self.kill_process(self.engine_proc)
+                    
+                    self.shutdown(None, None)
+                    break
+                else:
+                    self.log("LIFECYCLE", "Market feed died. Restarting...", "ERROR")
+                    self.start_market_feed()
                 
             # 2. Check Engine Health
             if self.engine_proc.poll() is not None:
@@ -207,7 +231,8 @@ class LifecycleManager:
                 self.start_engine()
                 
             # 3. Check Heartbeat
-            if current_time - self.last_heartbeat > self.config['processes']['market_feed']['heartbeat_timeout']:
+            feed_config_name = 'market_feed' if self.mode == 'live' else 'research_feed'
+            if current_time - self.last_heartbeat > self.config['processes'][feed_config_name]['heartbeat_timeout']:
                 self.log("LIFECYCLE", "Feed heartbeat timeout. Restarting feed...", "ERROR")
                 self.kill_process(self.feed_proc)
                 self.start_market_feed()
@@ -237,11 +262,12 @@ class LifecycleManager:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", default="live", choices=["live", "research"])
+    parser.add_argument("engine_args", nargs=argparse.REMAINDER, help="Arguments to pass to the engine")
     args = parser.parse_args()
 
     if args.mode == "live" and not os.environ.get("ALPACA_API_KEY"):
         print("Error: ALPACA_API_KEY not set")
         sys.exit(1)
         
-    manager = LifecycleManager(CONFIG_PATH, mode=args.mode)
+    manager = LifecycleManager(CONFIG_PATH, mode=args.mode, engine_args=args.engine_args)
     manager.run()

@@ -4,40 +4,48 @@ import lightgbm as lgb
 import treelite
 import os
 import shutil
+import argparse
 
 # Configuration
-LOG_FILE = "data/aapl_training_data.csv"
+DEFAULT_LOG_FILE = "data/training_features.csv"
 OUTPUT_DIR = "src/engine"
 MODEL_FILE = "model_compiled.c"
 HEADER_FILE = "model_compiled.h"
 
-def train_and_compile():
-    print("Loading data...")
+def train_and_compile(data_file=None):
+    log_file = data_file if data_file else DEFAULT_LOG_FILE
+    print(f"Loading data from {log_file}...")
     try:
-        # Load data
+        if not os.path.exists(log_file):
+            print(f"Error: {log_file} not found. Please run the engine on real data to generate features first.")
+            return
+
+        # Columns matching DecisionEngine.cpp output
         columns = ['type', 'timestamp', 'imbalance', 'spread', 'microprice', 'midprice', 
                    'inventory', 'equity', 'reservation_price', 'volatility', 'alpha',
-                   'arrival_rate', 'vpin', 'effective_spread']
-        df = pd.read_csv(LOG_FILE, names=columns, on_bad_lines='skip')
+                   'arrival_rate', 'vpin', 'effective_spread', 'ofi']
+        
+        # Read CSV, skipping bad lines (like "Loaded X events")
+        df = pd.read_csv(log_file, names=columns, on_bad_lines='skip')
+        
+        # Filter only TICK rows
         df = df[df['type'] == 'TICK'].copy()
         
-        numeric_cols = ['imbalance', 'spread', 'microprice', 'midprice', 'arrival_rate', 'vpin', 'effective_spread']
+        numeric_cols = ['imbalance', 'spread', 'microprice', 'midprice', 'arrival_rate', 'vpin', 'effective_spread', 'ofi']
         for col in numeric_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce')
         df.dropna(inplace=True)
         
         # Create Target: Future Return (Next Tick)
+        # We want to predict the price move.
         df['future_return'] = df['midprice'].shift(-1) - df['midprice']
         df.dropna(inplace=True)
         
         print("Target Stats:")
         print(df['future_return'].describe())
 
-        # Clip target to avoid outliers
-        df['future_return'] = df['future_return'].clip(-50, 50)
-
-        # Features: Imbalance, Spread, Arrival Rate, VPIN, Effective Spread
-        X = df[['imbalance', 'spread', 'arrival_rate', 'vpin', 'effective_spread']].values
+        # Features: Imbalance, Spread, Arrival Rate, VPIN, Effective Spread, OFI
+        X = df[['imbalance', 'spread', 'arrival_rate', 'vpin', 'effective_spread', 'ofi']].values
         y = df['future_return'].values
         
         print(f"Training LightGBM on {len(df)} samples...")
@@ -47,17 +55,16 @@ def train_and_compile():
             'metric': 'rmse',
             'boosting_type': 'gbdt',
             'num_leaves': 31,
-            'learning_rate': 0.01,
+            'learning_rate': 0.05,
             'feature_fraction': 0.9,
-            'bagging_fraction': 0.9,
-            'verbose': 1
+            'bagging_fraction': 0.8,
+            'bagging_freq': 5,
+            'verbose': -1
         }
-        bst = lgb.train(params, train_data, num_boost_round=50)
+        bst = lgb.train(params, train_data, num_boost_round=100)
         
         print("Compiling model with Treelite...")
         model = treelite.Model.from_lightgbm(bst)
-        # import treelite.frontend
-        # model = treelite.frontend.from_lightgbm(bst)
         
         # Compile to C code
         # We use a temporary directory to generate the files
@@ -67,12 +74,7 @@ def train_and_compile():
         os.makedirs(temp_dir)
         
         # Generate C code
-        # parallel_comp=0 disables OpenMP (simpler for standalone)
-        # In Treelite 3.9.0, use compiler='ast_native' (default)
         model.compile(dirpath=temp_dir, params={'parallel_comp': 0}, verbose=True)
-        
-        # Treelite generates 'main.c' and 'header.h' (and others)
-        # We need to move them to src/engine/ and rename main.c to model_compiled.c
         
         src_main = os.path.join(temp_dir, "main.c")
         src_header = os.path.join(temp_dir, "header.h")
@@ -107,6 +109,12 @@ def train_and_compile():
             
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
-    train_and_compile()
+    parser = argparse.ArgumentParser(description="Train HFT Model")
+    parser.add_argument("--data", help="Path to training data CSV")
+    args = parser.parse_args()
+    
+    train_and_compile(args.data)

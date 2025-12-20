@@ -16,7 +16,7 @@ processes:
     command: ["python", "python/research_feed_adapter.py"]
     restart_on_failure: false
     max_retries: 0
-    heartbeat_timeout: 30
+    heartbeat_timeout: 600
 
   engine:
     command: ["./hft_engine.exe"]

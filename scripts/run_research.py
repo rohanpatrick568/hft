@@ -10,12 +10,17 @@ def run_research():
     print("Starting Research Backtest...")
     
     # Clean previous state
-    for f in ["data/sim_state.json", "data/sim_orders.json", "data/sim_fills.json", "data/sim_position.json"]:
+    for f in ["data/sim_state.json", "data/sim_orders.json", "data/sim_fills.json", "data/sim_position.json", "data/sim_fills_history.json"]:
         if os.path.exists(f):
             os.remove(f)
             
     # Run Lifecycle Manager in Research Mode
     cmd = ["python", "scripts/lifecycle_manager.py", "--mode", "research"]
+    
+    # Pass through any command line arguments
+    if len(sys.argv) > 1:
+        cmd.append("--")
+        cmd.extend(sys.argv[1:])
     
     try:
         # We run it and wait for it to finish (it won't finish automatically unless feed finishes)
@@ -39,14 +44,19 @@ def run_research():
         # For now, let's just wait 10 seconds (our data is small/fast).
         
         print("Running simulation...")
-        time.sleep(15) 
         
-        print("Stopping simulation...")
-        proc.terminate()
+        # Wait for completion with timeout
         try:
-            proc.wait(timeout=5)
-        except:
-            proc.kill()
+            proc.wait(timeout=60) # Adjust timeout as needed for data size
+        except subprocess.TimeoutExpired:
+            print("Simulation timed out. Terminating...")
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except:
+                proc.kill()
+        
+        print("Simulation finished.")
             
         analyze_results()
         
@@ -56,12 +66,16 @@ def run_research():
 def analyze_results():
     print("Analyzing Results...")
     
-    if not os.path.exists("data/sim_fills.json"):
+    fills_file = "data/sim_fills_history.json"
+    if not os.path.exists(fills_file):
+        fills_file = "data/sim_fills.json"
+
+    if not os.path.exists(fills_file):
         print("No fills generated.")
         return
 
     try:
-        with open("data/sim_fills.json", 'r') as f:
+        with open(fills_file, 'r') as f:
             fills = json.load(f)
             
         if not fills:

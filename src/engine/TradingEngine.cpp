@@ -158,7 +158,12 @@ void TradingEngine::run() {
 }
 
 void TradingEngine::saveTradeLogs(const std::string& filename) {
+    std::cout << "Saving " << trade_logs.size() << " trade logs to " << filename << std::endl;
     std::ofstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << " for writing." << std::endl;
+        return;
+    }
     file << "timestamp,is_buy,fill_price,fill_midprice,alpha_at_fill,ofi_at_fill,midprice_after_5,midprice_after_10,regime,filled_after_latency,impact_cost\n";
     for (const auto& log : trade_logs) {
         file << log.timestamp << ","

@@ -4,6 +4,7 @@ import json
 import time
 import argparse
 import requests
+import simulated_execution_adapter
 
 # Configuration
 API_KEY = os.environ.get("ALPACA_API_KEY")
@@ -16,6 +17,9 @@ HEADERS = {
 }
 
 def place_order(symbol, side, qty, price=None, type="market"):
+    if API_KEY == "RESEARCH":
+        return simulated_execution_adapter.place_order(symbol, side, qty, price, type)
+
     url = f"{BASE_URL}/v2/orders"
     data = {
         "symbol": symbol,
@@ -36,6 +40,9 @@ def place_order(symbol, side, qty, price=None, type="market"):
         sys.stderr.write(f"[Alpaca] Error placing order: {response.text}\n")
 
 def cancel_order(order_id):
+    if API_KEY == "RESEARCH":
+        return simulated_execution_adapter.cancel_order(order_id)
+
     url = f"{BASE_URL}/v2/orders/{order_id}"
     response = requests.delete(url, headers=HEADERS)
     if response.status_code == 204:
@@ -44,6 +51,9 @@ def cancel_order(order_id):
         sys.stderr.write(f"[Alpaca] Error cancelling order: {response.text}\n")
 
 def get_position(symbol):
+    if API_KEY == "RESEARCH":
+        return simulated_execution_adapter.get_position(symbol)
+
     url = f"{BASE_URL}/v2/positions/{symbol}"
     response = requests.get(url, headers=HEADERS)
     if response.status_code == 200:
@@ -56,6 +66,9 @@ def get_position(symbol):
         print("0")
 
 def get_fills(symbol):
+    if API_KEY == "RESEARCH":
+        return simulated_execution_adapter.get_fills(symbol)
+
     # Get closed orders from the last minute
     # This is a simplified "fills" check. 
     # In a real HFT system, we'd listen to the trade updates websocket.
