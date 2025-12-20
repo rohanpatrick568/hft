@@ -30,20 +30,39 @@ bool LiveFeedAdapter::getNextEvent(MarketEvent& event) {
             parts.push_back(segment);
         }
         
-        if (parts.size() >= 5 && parts[0] == "TICK") {
+        // Schema: timestamp_ns,symbol,event_type,price,size,bid,ask
+        if (parts.size() >= 7) {
             try {
-                event.timestamp_ns = std::stoull(parts[1]);
-                event.price = std::stod(parts[2]);
-                event.quantity = std::stod(parts[3]);
-                event.is_buy = (std::stoi(parts[4]) == 1);
-                event.type = EventType::TRADE;
-                // event.symbol = symbol; // MarketEvent doesn't have symbol
+                event.timestamp_ns = std::stoull(parts[0]);
+                // parts[1] is symbol, ignored for now as we filter by symbol in Python or assume single symbol
+                std::string typeStr = parts[2];
+                
+                if (typeStr == "TRADE") {
+                    event.type = EventType::TRADE;
+                    event.price = std::stod(parts[3]);
+                    event.quantity = std::stod(parts[4]);
+                    event.is_buy = true; // Alpaca doesn't specify aggressor side easily in simple stream, assume buy or infer? 
+                    // Actually, for simple trade stream, we might not know. 
+                    // But for HFT, aggressor side is important. 
+                    // If not provided, we can default to true or try to infer from price vs prev quote.
+                    // For now, default to true or add logic if bid/ask is available.
+                } else if (typeStr == "QUOTE") {
+                    event.type = EventType::QUOTE;
+                    event.bid_price = std::stod(parts[5]);
+                    event.ask_price = std::stod(parts[6]);
+                    event.bid_size = 100; // Dummy size if not provided
+                    event.ask_size = 100; // Dummy size if not provided
+                } else {
+                    continue;
+                }
                 return true;
             } catch (...) {
                 std::cerr << "[LiveFeed] Parse error: " << line << std::endl;
                 continue;
             }
         }
+        // Fallback for old TICK format if needed, or just remove it.
+        // Removing old format to enforce new schema.
     }
     return false;
 }

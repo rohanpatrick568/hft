@@ -1,0 +1,33 @@
+system:
+  mode: live
+  symbol: AAPL
+  log_dir: logs
+  api_key_env: ALPACA_API_KEY
+  secret_key_env: ALPACA_SECRET_KEY
+
+processes:
+  market_feed:
+    command: ["python", "python/alpaca_market_bridge.py"]
+    restart_on_failure: true
+    max_retries: 5
+    heartbeat_timeout: 15 # seconds
+
+  research_feed:
+    command: ["python", "python/research_feed_adapter.py"]
+    restart_on_failure: false
+    max_retries: 0
+    heartbeat_timeout: 30
+
+  engine:
+    command: ["./hft_engine.exe"]
+    args: ["--mode", "live", "--symbol", "AAPL"]
+    restart_on_failure: true
+    max_retries: 3
+
+risk:
+  enabled: true
+  check_interval: 10 # seconds
+  max_daily_loss: 500.0 # USD
+  max_position_size: 100 # Shares
+  max_trades_per_minute: 20
+  emergency_flat_on_violation: true

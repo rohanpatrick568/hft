@@ -21,15 +21,16 @@ std::string exec(const char* cmd) {
     return buffer.str();
 }
 
-PaperExchangeAdapter::PaperExchangeAdapter(const std::string& apiKey, const std::string& secretKey, bool use_testnet)
-    : apiKey(apiKey), secretKey(secretKey), use_testnet(use_testnet) {}
+PaperExchangeAdapter::PaperExchangeAdapter(const std::string& apiKey, const std::string& secretKey, const std::string& symbol, bool use_testnet)
+    : apiKey(apiKey), secretKey(secretKey), symbol(symbol), use_testnet(use_testnet) {}
 
 void PaperExchangeAdapter::placeOrder(bool is_buy, double price, double quantity, uint64_t timestamp) {
     std::stringstream cmd;
-    cmd << "python scripts/order_manager.py --action place --symbol BTCUSDT"
+    cmd << "python python/alpaca_execution_adapter.py --action place --symbol " << symbol
         << " --side " << (is_buy ? "BUY" : "SELL")
         << " --quantity " << quantity
         << " --price " << price
+        << " --type limit"
         << " --api_key " << apiKey
         << " --secret_key " << secretKey;
         
@@ -38,7 +39,7 @@ void PaperExchangeAdapter::placeOrder(bool is_buy, double price, double quantity
 
 void PaperExchangeAdapter::cancelOrder(uint64_t orderId) {
     std::stringstream cmd;
-    cmd << "python scripts/order_manager.py --action cancel --symbol BTCUSDT"
+    cmd << "python python/alpaca_execution_adapter.py --action cancel --symbol " << symbol
         << " --order_id " << orderId
         << " --api_key " << apiKey
         << " --secret_key " << secretKey;
@@ -53,7 +54,7 @@ void PaperExchangeAdapter::processMarketEvent(const MarketEvent& event) {
 std::vector<FillReport> PaperExchangeAdapter::getNewFills() {
     std::vector<FillReport> fills;
     std::stringstream cmd;
-    cmd << "python scripts/order_manager.py --action fills --symbol BTCUSDT"
+    cmd << "python python/alpaca_execution_adapter.py --action fills --symbol " << symbol
         << " --api_key " << apiKey
         << " --secret_key " << secretKey;
         
@@ -64,7 +65,22 @@ std::vector<FillReport> PaperExchangeAdapter::getNewFills() {
     while (std::getline(ss, line)) {
         if (line.empty()) continue;
         // Log fill
-        std::cerr << "[PaperExchange] Fill: " << line << std::endl;
+        // Format: timestamp,orderId,price,quantity,is_buy,is_maker
+        std::stringstream line_ss(line);
+        std::string segment;
+        std::vector<std::string> parts;
+        while(std::getline(line_ss, segment, ',')) parts.push_back(segment);
+        
+        if (parts.size() >= 5) {
+            FillReport report;
+            report.timestamp = std::stoull(parts[0]);
+            report.orderId = std::stoull(parts[1]);
+            report.price = std::stod(parts[2]);
+            report.quantity = std::stod(parts[3]);
+            report.is_buy = (std::stoi(parts[4]) == 1);
+            report.is_maker = false; // Alpaca doesn't specify easily
+            fills.push_back(report);
+        }
     }
     
     return fills;
@@ -72,7 +88,7 @@ std::vector<FillReport> PaperExchangeAdapter::getNewFills() {
 
 double PaperExchangeAdapter::getInventory() const {
     std::stringstream cmd;
-    cmd << "python scripts/order_manager.py --action position --symbol BTCUSDT"
+    cmd << "python python/alpaca_execution_adapter.py --action position --symbol " << symbol
         << " --api_key " << apiKey
         << " --secret_key " << secretKey;
         

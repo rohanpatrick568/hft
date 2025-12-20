@@ -25,4 +25,5 @@ private:
     void handleTrade(const MarketEvent& event);
     void handleAdd(const MarketEvent& event);
     void handleCancel(const MarketEvent& event);
+    void handleQuote(const MarketEvent& event);
 };

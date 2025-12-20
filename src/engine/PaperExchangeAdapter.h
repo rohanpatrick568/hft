@@ -5,7 +5,7 @@
 
 class PaperExchangeAdapter : public ExecutionInterface {
 public:
-    PaperExchangeAdapter(const std::string& apiKey, const std::string& secretKey, bool use_testnet = true);
+    PaperExchangeAdapter(const std::string& apiKey, const std::string& secretKey, const std::string& symbol, bool use_testnet = true);
     
     void placeOrder(bool is_buy, double price, double quantity, uint64_t timestamp) override;
     void cancelOrder(uint64_t orderId) override;
@@ -17,6 +17,7 @@ public:
 private:
     std::string apiKey;
     std::string secretKey;
+    std::string symbol;
     bool use_testnet;
     
     double current_inventory = 0.0;

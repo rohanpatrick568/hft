@@ -3,11 +3,14 @@
 ## Overview
 This project is a high-frequency trading (HFT) research system designed to simulate realistic market microstructure behavior. It combines a high-performance **C++ Core** for simulation with a **Python/LightGBM** stack for machine learning.
 
-The system is designed to be **offline-first**, using free public trade data (Binance) to simulate a realistic trading environment including **network latency**, **queue position**, and **execution probability**.
+The system supports both **Offline Backtesting** and **Live Paper Trading** (via Alpaca).
 
 ## Key Features
-*   **Event-Driven Replay Engine**: Replays historical market data tick-by-tick with nanosecond precision.
-*   **Volume Clock**: Triggers decision events based on traded volume (e.g., every 1.0 BTC) rather than wall-clock time, adapting to market activity.
+*   **Event-Driven Core**: Replays historical market data or processes live feeds tick-by-tick with nanosecond precision.
+*   **Live Paper Trading (Alpaca)**:
+    *   **Hybrid Architecture**: Python handles WebSocket/REST connectivity; C++ handles strategy and risk.
+    *   **Venue Agnostic**: Abstract interfaces allow easy switching between brokers.
+*   **Volume Clock**: Triggers decision events based on traded volume rather than wall-clock time.
 *   **Hybrid ML Inference**:
     *   **Python Training**: Trains a LightGBM Gradient Boosting model on historical data using **Spread-Adjusted Returns**.
     *   **C++ Inference**: Compiles the model to optimized C code using **Treelite**, allowing for zero-overhead inference inside the hot path.
@@ -25,11 +28,10 @@ The system is designed to be **offline-first**, using free public trade data (Bi
     *   **Fill Logic**: Orders are only filled if the market price crosses the limit price *after* the order arrives at the exchange.
 
 ## Prerequisites
-- **OS:** Windows 10/11 (or Linux/macOS with CMake)
-- **C++ Compiler:** C++17 compatible (MSVC, GCC, Clang)
-- **Build System:** CMake 3.10+
+- **OS:** Windows 10/11 (or Linux/macOS)
+- **C++ Compiler:** C++17 compatible (MinGW, MSVC, GCC)
 - **Python:** 3.8+
-- **Python Libraries:** `pandas`, `numpy`, `lightgbm`, `treelite==3.9.0`, `treelite_runtime==3.9.0`, `matplotlib`, `plotly`, `seaborn`
+- **Python Libraries:** `pandas`, `numpy`, `lightgbm`, `treelite==3.9.0`, `requests`, `websocket-client`
 
 ## Directory Structure
 ```

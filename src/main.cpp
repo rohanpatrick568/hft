@@ -23,6 +23,7 @@ int main(int argc, char* argv[]) {
     std::string mode = "backtest";
     std::string apiKey = "";
     std::string secretKey = "";
+    std::string symbol = "BTCUSDT"; // Default
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -48,6 +49,8 @@ int main(int argc, char* argv[]) {
             apiKey = argv[++i];
         } else if (arg == "--secret-key" && i + 1 < argc) {
             secretKey = argv[++i];
+        } else if (arg == "--symbol" && i + 1 < argc) {
+            symbol = argv[++i];
         } else {
             dataFile = arg;
         }
@@ -65,9 +68,9 @@ int main(int argc, char* argv[]) {
         simExchange->setQueueDecay(queue_decay);
         simExchange->setImpactCoeff(impact_coeff);
         execution = simExchange;
-    } else if (mode == "paper") {
-        feed = new LiveFeedAdapter("BTCUSDT", true);
-        execution = new PaperExchangeAdapter(apiKey, secretKey, true);
+    } else if (mode == "live" || mode == "paper") {
+        feed = new LiveFeedAdapter(symbol, true);
+        execution = new PaperExchangeAdapter(apiKey, secretKey, symbol, true);
     } else {
         std::cerr << "Unknown mode: " << mode << std::endl;
         return 1;

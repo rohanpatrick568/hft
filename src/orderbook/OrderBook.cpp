@@ -11,6 +11,23 @@ void OrderBook::apply(const MarketEvent& event) {
         case EventType::CANCEL:
             handleCancel(event);
             break;
+        case EventType::QUOTE:
+            handleQuote(event);
+            break;
+    }
+}
+
+void OrderBook::handleQuote(const MarketEvent& event) {
+    // For L1 data (Alpaca), we only get BBO.
+    // We clear the book and set the new BBO to ensure correctness.
+    bids.clear();
+    asks.clear();
+    
+    if (event.bid_size > 0) {
+        bids[event.bid_price] = event.bid_size;
+    }
+    if (event.ask_size > 0) {
+        asks[event.ask_price] = event.ask_size;
     }
 }
 
