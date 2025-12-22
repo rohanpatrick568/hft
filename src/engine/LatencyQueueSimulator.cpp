@@ -14,6 +14,7 @@ void LatencyQueueSimulator::addOrder(bool is_buy, double price, double quantity,
     order.price = price;
     order.quantity = quantity;
     order.arrival_time = current_time + latency;
+    order.submission_time = current_time; // Added
     pendingOrders.push(order);
 }
 

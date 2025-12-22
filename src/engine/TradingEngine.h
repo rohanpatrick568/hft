@@ -47,6 +47,7 @@ private:
         size_t event_index;
         bool filled_after_latency;
         double impact_cost;
+        uint64_t order_entry_time; // Added
     };
     std::vector<TradeLog> trade_logs;
     std::vector<size_t> active_log_indices;

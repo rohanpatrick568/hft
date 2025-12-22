@@ -60,9 +60,15 @@ public:
 
                 std::string typeStr = parts[2];
                 if (typeStr == "QUOTE") {
+                    double b = std::stod(parts[5]);
+                    double a = std::stod(parts[6]);
+                    
+                    // Skip invalid quotes (one side missing or zero)
+                    if (b <= 1e-9 || a <= 1e-9) continue;
+                    
                     event.type = EventType::QUOTE;
-                    event.bid_price = std::stod(parts[5]);
-                    event.ask_price = std::stod(parts[6]);
+                    event.bid_price = b;
+                    event.ask_price = a;
                     // Assume size 100 for quotes as it's missing
                     event.bid_size = 100; 
                     event.ask_size = 100;
@@ -82,7 +88,7 @@ public:
             }
         }
         
-        std::sort(events.begin(), events.end(), [](const MarketEvent& a, const MarketEvent& b) {
+        std::stable_sort(events.begin(), events.end(), [](const MarketEvent& a, const MarketEvent& b) {
             return a.timestamp_ns < b.timestamp_ns;
         });
 

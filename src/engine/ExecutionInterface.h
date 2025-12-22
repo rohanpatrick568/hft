@@ -10,6 +10,7 @@ struct FillReport {
     double quantity;
     bool is_buy;
     bool is_maker;
+    uint64_t entry_time; // Added for Latency Verification
 };
 
 class ExecutionInterface {

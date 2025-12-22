@@ -5,12 +5,14 @@ import treelite
 import os
 import shutil
 import argparse
+from sklearn.preprocessing import StandardScaler
 
 # Configuration
 DEFAULT_LOG_FILE = "data/training_features.csv"
 OUTPUT_DIR = "src/engine"
 MODEL_FILE = "model_compiled.c"
 HEADER_FILE = "model_compiled.h"
+SCALING_HEADER_FILE = "scaling_params.h"
 
 def train_and_compile(data_file=None):
     log_file = data_file if data_file else DEFAULT_LOG_FILE
@@ -41,15 +43,38 @@ def train_and_compile(data_file=None):
         df['future_return'] = df['midprice'].shift(-1) - df['midprice']
         df.dropna(inplace=True)
         
+        # Clip target to remove extreme outliers (e.g. > 50 cents)
+        df['future_return'] = df['future_return'].clip(-0.5, 0.5)
+        
         print("Target Stats:")
         print(df['future_return'].describe())
 
         # Features: Imbalance, Spread, Arrival Rate, VPIN, Effective Spread, OFI
-        X = df[['imbalance', 'spread', 'arrival_rate', 'vpin', 'effective_spread', 'ofi']].values
+        feature_cols = ['imbalance', 'spread', 'arrival_rate', 'vpin', 'effective_spread', 'ofi']
+        X = df[feature_cols].values
         y = df['future_return'].values
         
+        # Scale Features
+        print("Scaling features...")
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        
+        # Save scaling parameters to C++ header
+        scaling_header_path = os.path.join(OUTPUT_DIR, SCALING_HEADER_FILE)
+        print(f"Generating {scaling_header_path}...")
+        with open(scaling_header_path, "w") as f:
+            f.write("#ifndef SCALING_PARAMS_H\n")
+            f.write("#define SCALING_PARAMS_H\n\n")
+            for i, col in enumerate(feature_cols):
+                name = col.upper()
+                # Handle zero variance case to avoid division by zero
+                scale_val = scaler.scale_[i] if scaler.scale_[i] > 1e-9 else 1.0
+                f.write(f"const double MEAN_{name} = {scaler.mean_[i]};\n")
+                f.write(f"const double SCALE_{name} = {scale_val};\n")
+            f.write("\n#endif // SCALING_PARAMS_H\n")
+
         print(f"Training LightGBM on {len(df)} samples...")
-        train_data = lgb.Dataset(X, label=y)
+        train_data = lgb.Dataset(X_scaled, label=y)
         params = {
             'objective': 'regression',
             'metric': 'rmse',
@@ -61,7 +86,7 @@ def train_and_compile(data_file=None):
             'bagging_freq': 5,
             'verbose': -1
         }
-        bst = lgb.train(params, train_data, num_boost_round=100)
+        bst = lgb.train(params, train_data, num_boost_round=2000)
         
         print("Compiling model with Treelite...")
         model = treelite.Model.from_lightgbm(bst)

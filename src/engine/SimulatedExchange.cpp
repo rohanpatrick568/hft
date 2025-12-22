@@ -6,6 +6,7 @@ SimulatedExchange::SimulatedExchange(OrderBook& book, uint64_t latency_us)
 
 void SimulatedExchange::placeOrder(bool is_buy, double price, double quantity, uint64_t timestamp) {
     // In simulation, we just add to latency queue. 
+    // We don't have a real order ID yet, but we can assign one. 
     // We don't have a real order ID yet, but we can assign one.
     // LatencyQueueSimulator stores PendingOrder which doesn't have ID.
     // We might need to modify LatencyQueueSimulator or just assume FIFO for now.
@@ -39,7 +40,7 @@ void SimulatedExchange::processMarketEvent(const MarketEvent& event) {
         ro.is_buy = order.is_buy;
         ro.price = order.price;
         ro.quantity = order.quantity;
-        ro.entry_time = event.timestamp_ns;
+        ro.entry_time = order.submission_time; // Use submission time for verification
         
         // Queue Position Logic
         ro.queue_position = book.getVolumeAt(ro.price);
@@ -99,6 +100,7 @@ void SimulatedExchange::processMarketEvent(const MarketEvent& event) {
                 report.quantity = it->quantity;
                 report.is_buy = it->is_buy;
                 report.is_maker = true; // Limit orders are maker
+                report.entry_time = it->entry_time; // Added for Latency Verification
                 
                 new_fills.push_back(report);
                 

@@ -1,29 +1,60 @@
-# Logs and Data
-*.png
-*.jpg
-*.log
-*.csv
-*.json
-data/*.csv
-data/*.zip
+# ===========================================
+# HFT Trading System - Production .gitignore
+# ===========================================
 
-# IDE and Configuration
-.vscode/
-.github/
-
-# Build artifacts
-CMakeFiles/
+# Build Artifacts
 build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
 *.o
-*.exe
 *.obj
+*.exe
 *.pdb
 *.ilk
 *.tlog
 *.idb
+*.lib
+*.exp
+*.vcxproj
+*.vcxproj.filters
+*.sln
+*.dir/
+
+# Logs and Transient Data
+*.log
+*.csv
+!data/historical/*.csv
+!config/*.csv
+
+# JSON (except configs)
+*.json
+!config/*.json
+
+# Backup Files
+*.bak
+*.old
+*.DELETION_PENDING
+
+# Legacy Archive
+archive_legacy/
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # Python
 __pycache__/
 *.pyc
+*.pyo
 .ipynb_checkpoints/
-legacy_*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Results (regeneratable)
+results/*.html
+results/*.csv

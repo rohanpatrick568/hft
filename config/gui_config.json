@@ -1,0 +1,6 @@
+{
+    "risk_aversion": 0.1,
+    "half_spread": 0.05,
+    "skew_factor": 1.0,
+    "mode": "Backtest"
+}

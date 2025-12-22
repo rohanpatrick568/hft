@@ -80,6 +80,7 @@ void TradingEngine::run() {
             log.midprice_after_5 = 0;
             log.midprice_after_10 = 0;
             log.impact_cost = 0; // Hard to calc here without more info, assume captured in fill price
+            log.order_entry_time = fill.entry_time; // Populate
             
             trade_logs.push_back(log);
             active_log_indices.push_back(trade_logs.size() - 1);
@@ -164,7 +165,7 @@ void TradingEngine::saveTradeLogs(const std::string& filename) {
         std::cerr << "Error: Could not open file " << filename << " for writing." << std::endl;
         return;
     }
-    file << "timestamp,is_buy,fill_price,fill_midprice,alpha_at_fill,ofi_at_fill,midprice_after_5,midprice_after_10,regime,filled_after_latency,impact_cost\n";
+    file << "timestamp,is_buy,fill_price,fill_midprice,alpha_at_fill,ofi_at_fill,midprice_after_5,midprice_after_10,regime,filled_after_latency,impact_cost,order_entry_time\n";
     for (const auto& log : trade_logs) {
         file << log.timestamp << ","
              << log.is_buy << ","
@@ -176,7 +177,8 @@ void TradingEngine::saveTradeLogs(const std::string& filename) {
              << log.midprice_after_10 << ","
              << log.regime << ","
              << log.filled_after_latency << ","
-             << log.impact_cost << "\n";
+             << log.impact_cost << ","
+             << log.order_entry_time << "\n";
     }
     std::cout << "Saved trade logs to " << filename << std::endl;
 }

@@ -1,0 +1,7 @@
+{
+    "risk_aversion": 0.016646496917339142,
+    "half_spread": 0.01001368424996862,
+    "skew_factor": 1.5,
+    "max_inventory": 112,
+    "description": "Aggressive Growth Configuration - 2x inventory limit, higher skew factor"
+}

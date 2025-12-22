@@ -24,6 +24,7 @@ int main(int argc, char* argv[]) {
     int window_size = 100;
     double half_spread = 0.0;
     double skew_factor = 1.0;
+    double max_inventory = 100.0;
     std::string mode = "backtest";
     std::string apiKey = "";
     std::string secretKey = "";
@@ -45,6 +46,8 @@ int main(int argc, char* argv[]) {
             queue_decay = std::stod(argv[++i]);
         } else if (arg == "--order-size" && i + 1 < argc) {
             order_size = std::stod(argv[++i]);
+        } else if (arg == "--max-inventory" && i + 1 < argc) {
+            max_inventory = std::stod(argv[++i]);
         } else if (arg == "--impact-coeff" && i + 1 < argc) {
             impact_coeff = std::stod(argv[++i]);
         } else if (arg == "--risk-aversion" && i + 1 < argc) {
@@ -91,6 +94,7 @@ int main(int argc, char* argv[]) {
     // Pass use_ml to DecisionEngine
     DecisionEngine decisionEngine(*execution, risk_aversion, window_size, use_ml);
     decisionEngine.setOrderSize(order_size);
+    decisionEngine.setMaxInventory(max_inventory);
     decisionEngine.setHalfSpread(half_spread);
     decisionEngine.setSkewFactor(skew_factor);
     

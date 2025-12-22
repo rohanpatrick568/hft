@@ -100,6 +100,14 @@ def run_engine(args):
     if args.secret_key:
         cmd.extend(["--secret-key", args.secret_key])
         
+    # Strategy Parameters
+    if args.risk_aversion is not None:
+        cmd.extend(["--risk-aversion", str(args.risk_aversion)])
+    if args.half_spread is not None:
+        cmd.extend(["--half-spread", str(args.half_spread)])
+    if args.skew_factor is not None:
+        cmd.extend(["--skew-factor", str(args.skew_factor)])
+        
     # Pass through other potential args if we had them
     # Ensure we log trades to a file for the retraining pipeline
     cmd.extend(["--trade-logs", "data/trade_log.csv"])
@@ -353,6 +361,11 @@ def main():
     parser.add_argument("--data-file", help="Path to data file (required for backtest/research)")
     parser.add_argument("--base-url", help="Alpaca Base URL (default: paper url)")
     parser.add_argument("--wait-long", action="store_true", help="Wait even if market open is > 1 hour away")
+    
+    # Strategy Parameters
+    parser.add_argument("--risk-aversion", type=float, help="Risk Aversion Parameter")
+    parser.add_argument("--half-spread", type=float, help="Half Spread Parameter")
+    parser.add_argument("--skew-factor", type=float, help="Skew Factor Parameter")
     
     args = parser.parse_args()
     

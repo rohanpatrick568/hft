@@ -9,6 +9,7 @@ struct PendingOrder {
     double price;
     double quantity;
     uint64_t arrival_time;
+    uint64_t submission_time; // Added
 };
 
 class LatencyQueueSimulator {

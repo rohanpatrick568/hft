@@ -12,11 +12,13 @@ public:
     void setOrderSize(double size) { order_size = size; }
     void setHalfSpread(double spread) { half_spread = spread; }
     void setSkewFactor(double skew) { skew_factor = skew; }
+    void setMaxInventory(double limit) { max_inventory = limit; }
 
 private:
     ExecutionInterface& execution;
     double last_alpha = 0.0;
     double order_size = 0.01;
+    double max_inventory = 100.0;
     
     // Avellaneda-Stoikov Parameters
     double risk_aversion; // gamma
@@ -29,4 +31,7 @@ private:
     // Volatility Calculation
     std::deque<double> price_history;
     double calculate_volatility();
+    
+    uint64_t last_order_time = 0;
+    uint64_t min_order_interval_ns = 100000000; // 100ms
 };
